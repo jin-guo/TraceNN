@@ -3,8 +3,6 @@
   Functions for loading data from disk.
 
 --]]
-package.path = './util/?.lua;' .. package.path
-
 function tracenn.read_embedding(vocab_path, emb_path)
   local vocab = tracenn.Vocab(vocab_path)
   local embedding = torch.load(emb_path)

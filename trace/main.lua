@@ -18,12 +18,12 @@ local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default lstm)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 1)          	Number of layers (ignored for averagevect)
-  -d,--dim    (default 40)        	RNN hidden dimension (the same with LSTM memory dim)
+  -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
   -e,--epochs (default 100)         Number of training epochs
-  -s,--s_dim  (default 25)          Number of similairity module hidden dimension
+  -s,--s_dim  (default 10)          Number of similairity module hidden dimension
   -r,--learning_rate (default 0.001) Learning Rate during Training NN Model
   -b,--batch_size (default 3)      Batch Size of training data point for each update of parameters
-  -c,--grad_clip (default 1000)  Gradient clip threshold
+  -c,--grad_clip (default 100)  Gradient clip threshold
 ]]
 
 local model_name, model_class
@@ -53,18 +53,22 @@ local model_structure = args.model
 header('Use Model: ' ..model_name .. ' for Tracing')
 
 -- directory containing dataset files
-local data_dir = 'data/trace_balanced/'
+local data_dir = tracenn.data_dir ..'/trace_balanced/'
 
 -- load artifact vocab
 local vocab = tracenn.Vocab(data_dir .. 'vocab_ptc_artifact_clean.txt')
 
 -- load embeddings
 print('Loading word embeddings')
-local emb_dir = 'data/wordembedding/'
-local emb_prefix = emb_dir .. 'ptc_pagesep_w5_100d_10iter'
+local emb_dir = tracenn.data_dir ..'/wordembedding/'
+local emb_prefix = emb_dir .. 'wiki_ptc_nosymbol_100d_w5_i5_vecs'
 local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
 local emb_dim
-emb_dim = emb_vecs:size(2)
+for i, vec in ipairs(emb_vecs) do
+  emb_dim = vec:size(1)
+  break
+end
+print('Embedding dim:', emb_dim)
 
 -- use only vectors in vocabulary (not necessary, but gives faster training)
 local num_unk = 0
@@ -153,7 +157,7 @@ for i = 1, num_epochs do
     best_dev_model.params:copy(model.params)
   end
 
-  if(dev_loss > last_dev_loss and model.learning_rate > 1e-6 and i>30) then
+  if(dev_loss > last_dev_loss and model.learning_rate > 1e-6 and i>10) then
     model.learning_rate = model.learning_rate/2
     print("Learning rate changed to:", model.learning_rate)
   end

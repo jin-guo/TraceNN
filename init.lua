@@ -21,9 +21,10 @@ include('trace/AverageVectTrace.lua')
 printf = utils.printf
 
 -- global paths (modify if desired)
-tracenn.data_dir        = 'data'
-tracenn.models_dir      = 'trained_models'
-tracenn.predictions_dir = 'predictions'
+tracenn.output = '/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/'
+tracenn.data_dir        = tracenn.output .. 'data'
+tracenn.models_dir      = tracenn.output .. 'trained_models'
+tracenn.predictions_dir = tracenn.output .. 'predictions'
 
 -- share module parameters
 function share_params(cell, src)

@@ -212,6 +212,7 @@ function Trace:train(dataset)
       local rnn_grad_params = self.grad_params:narrow(1,1,self.rnn_params_element_number)
       local rnn_grad_norm = torch.norm(rnn_grad_params)
       if rnn_grad_norm > self.grad_clip then
+        print('clipping gradient')
           rnn_grad_params:div(rnn_grad_norm/self.grad_clip)
       end
 
@@ -229,7 +230,7 @@ function Trace:train(dataset)
   --  diff, dc, dc_est = optim.checkgrad(feval, self.params:clone())
   --  print('Diff must be close to 1e-8: diff = ' .. diff)
 
-    optim.sgd(feval, self.params, self.optim_state)
+    optim.rmsprop(feval, self.params, self.optim_state)
   end
   xlua.progress(dataset.size, dataset.size)
 end
@@ -355,6 +356,8 @@ function Trace:print_config()
   printf('%-25s = %s\n',   'RNN structure', self.structure)
   printf('%-25s = %d\n',   'RNN layers', self.num_layers)
   printf('%-25s = %d\n',   'sim module hidden dim', self.sim_nhidden)
+  printf('%-25s = %d\n',   'Gradient clip', self.grad_clip)
+
 end
 
 --
