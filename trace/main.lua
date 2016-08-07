@@ -16,13 +16,13 @@ end
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default lstm)        Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 1)          	Number of layers (ignored for averagevect)
+  -m,--model  (default averagevect)        Model architecture: [lstm, bilstm, averagevect]
+  -l,--layers (default 2)          	Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 100)         Number of training epochs
-  -s,--s_dim  (default 10)          Number of similairity module hidden dimension
-  -r,--learning_rate (default 0.001) Learning Rate during Training NN Model
-  -b,--batch_size (default 3)      Batch Size of training data point for each update of parameters
+  -e,--epochs (default 50)         Number of training epochs
+  -s,--s_dim  (default 50)          Number of similairity module hidden dimension
+  -r,--learning_rate (default 1.00e-03) Learning Rate during Training NN Model
+  -b,--batch_size (default 10)      Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 100)  Gradient clip threshold
 ]]
 
@@ -53,10 +53,10 @@ local model_structure = args.model
 header('Use Model: ' ..model_name .. ' for Tracing')
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'/trace_balanced/'
+local data_dir = tracenn.data_dir ..'/trace/'
 
 -- load artifact vocab
-local vocab = tracenn.Vocab(data_dir .. 'vocab_ptc_artifact_clean.txt')
+local vocab = tracenn.Vocab(data_dir .. 'vocab_ptc_artifact_clean_nosymbol.txt')
 
 -- load embeddings
 print('Loading word embeddings')
@@ -157,7 +157,7 @@ for i = 1, num_epochs do
     best_dev_model.params:copy(model.params)
   end
 
-  if(dev_loss > last_dev_loss and model.learning_rate > 1e-6 and i>10) then
+  if(dev_loss > last_dev_loss and i>50 and model.learning_rate > 1e-8) then
     model.learning_rate = model.learning_rate/2
     print("Learning rate changed to:", model.learning_rate)
   end
@@ -201,11 +201,18 @@ local predictions_file = torch.DiskFile(predictions_save_path, 'w')
 predictions_file:noAutoSpacing()
 print('writing predictions to ' .. predictions_save_path)
 for i = 1, #test_predictions do
-  for j = 1, test_predictions[i]:size(1) do
-    predictions_file:writeDouble(test_predictions[i][j])
-    predictions_file:writeString(',')
+  if args.model == 'averagevect' then
+    for j = 1, test_predictions[i]:size(2) do
+      predictions_file:writeDouble(test_predictions[i][1][j])
+      predictions_file:writeString(',')
+    end
+  else
+    for j = 1, test_predictions[i]:size(1) do
+      predictions_file:writeDouble(test_predictions[i][j])
+      predictions_file:writeString(',')
+    end
   end
-    predictions_file:writeString('\n')
+  predictions_file:writeString('\n')
 end
 predictions_file:close()
 

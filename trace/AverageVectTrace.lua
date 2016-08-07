@@ -9,7 +9,7 @@ local AverageVectTrace = torch.class('tracenn.AverageVectTrace')
 function AverageVectTrace:__init(config)
   self.learning_rate = config.learning_rate or 0.01
   self.batch_size    = config.batch_size    or 5
-  self.reg           = config.reg           or 1e-4
+  self.reg           = config.reg           or 0
   self.structure     = config.structure     or 'averagevect'
   self.sim_nhidden   = config.sim_nhidden   or 20
 
@@ -19,12 +19,13 @@ function AverageVectTrace:__init(config)
 
   -- number of similarity rating classes
   self.num_classes = 2
+  self.class_weight = torch.Tensor({1, 500})
 
   -- optimizer configuration
   self.optim_state = { learningRate = self.learning_rate }
 
   -- KL divergence optimization objective
-  self.criterion = nn.ClassNLLCriterion()
+  self.criterion = nn.ClassNLLCriterion(self.class_weight)
 
   -- similarity model
   self.sim_module = self:new_sim_module()
@@ -54,6 +55,7 @@ end
 
 function AverageVectTrace:train(dataset)
   local indices = torch.randperm(dataset.size)
+  local train_loss = 0
   for i = 1, dataset.size, self.batch_size do
     xlua.progress(i, dataset.size)
     local batch_size = math.min(i + self.batch_size - 1, dataset.size) - i + 1
@@ -85,7 +87,6 @@ function AverageVectTrace:train(dataset)
         -- compute relatedness
         local output = self.sim_module:forward(inputs)
 
-
         -- compute loss and backpropagate
         local example_loss = self.criterion:forward(output, targets[j])
     --    print("Loss:",example_loss)
@@ -94,13 +95,15 @@ function AverageVectTrace:train(dataset)
         local sim_grad = self.criterion:backward(output, targets[j])
         local rep_grad = self.sim_module:backward(inputs, sim_grad)
       end
-
+      train_loss = train_loss + loss
       loss = loss / batch_size
       -- print(loss)
       self.grad_params:div(batch_size)
 
       -- regularization
-      loss = loss + 0.5 * self.reg * self.params:norm() ^ 2
+      -- print('loss before:',loss)
+      loss = loss + 0.5 * self.reg * self.params:norm() ^ 2 * batch_size/dataset.size
+      -- print('loss after:',loss)
       self.grad_params:add(self.reg, self.params)
 --      count = count + 1
 --      print(count)
@@ -110,9 +113,11 @@ function AverageVectTrace:train(dataset)
 --    print('Check the gradients:', self.grad_params:size(1)*2)
 --    diff, dc, dc_est = optim.checkgrad(feval, self.params:clone())
 --    print('Diff must be close to 1e-8: diff = ' .. diff)
-    optim.adagrad(feval, self.params, self.optim_state)
+    optim.sgd(feval, self.params, self.optim_state)
   end
   xlua.progress(dataset.size, dataset.size)
+  train_loss = train_loss/dataset.size
+  print('Train loss', train_loss)
 end
 
 -- Predict the similarity of a sentence pair.
@@ -188,7 +193,7 @@ end
 
 function AverageVectTrace.load(path)
   local state = torch.load(path)
-  local model = treelstm.AverageVectTrace.new(state.config)
+  local model = tracenn.AverageVectTrace.new(state.config)
   model.params:copy(state.params)
   return model
 end

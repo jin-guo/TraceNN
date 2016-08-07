@@ -23,6 +23,7 @@ function Trace:__init(config)
 
   -- number of similarity rating classes
   self.num_classes = 2
+  self.class_weight = torch.Tensor({0.001, 1})
 
   -- optimizer configuration
   self.optim_state = { learningRate = self.learning_rate }
@@ -141,6 +142,7 @@ function Trace:train(dataset)
 
   local indices = torch.randperm(dataset.size)
   local zeros = torch.zeros(self.hidden_dim)
+  local train_loss = 0
   for i = 1, dataset.size, self.batch_size do
     xlua.progress(i, dataset.size)
     local batch_size = math.min(i + self.batch_size - 1, dataset.size) - i + 1
@@ -180,6 +182,7 @@ function Trace:train(dataset)
 
         -- compute relatedness
         local output = self.sim_module:forward(inputs)
+
   --[[      print("Input left:",inputs[1])
         print("Input right:",inputs[2])
 
@@ -202,9 +205,9 @@ function Trace:train(dataset)
           self:BiRNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
         end
       end
+      train_loss = train_loss + loss
 
       loss = loss / batch_size
-      -- print(loss)
       self.grad_params:div(batch_size)
 
       -- Gradient clipping: if the norm of rnn gradient is bigger than threshold
@@ -217,7 +220,7 @@ function Trace:train(dataset)
       end
 
       -- regularization
-      loss = loss + 0.5 * self.reg * self.params:norm() ^ 2
+      loss = loss + 0.5 * self.reg * self.params:norm() ^ 2 * batch_size/dataset.size
       -- Final derivatives to return after regularization:
       -- self.grad_params + self.reg*self.params
       self.grad_params:add(self.reg, self.params)
@@ -232,7 +235,10 @@ function Trace:train(dataset)
 
     optim.rmsprop(feval, self.params, self.optim_state)
   end
+  train_loss = train_loss/dataset.size
   xlua.progress(dataset.size, dataset.size)
+  print('Training loss', train_loss)
+
 end
 
 -- LSTM backward propagation

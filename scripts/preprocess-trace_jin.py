@@ -10,14 +10,14 @@ def make_dirs(dirs):
     for d in dirs:
         if not os.path.exists(d):
             os.makedirs(d)
-    
+
 def tokenize(filepath, cp=''):
     dirpath = os.path.dirname(filepath)
     filepre = os.path.splitext(os.path.basename(filepath))[0]
     tokpath = os.path.join(dirpath, filepre + '.toks')
     cmd = ('java -cp %s edu.stanford.nlp.process.PTBTokenizer -preserveLines %s > %s'
         % (cp, filepath, tokpath))
-    os.system(cmd)    
+    os.system(cmd)
 
 def build_vocab(filepaths, dst_path, lowercase=True):
     vocab = set()
@@ -48,33 +48,28 @@ def split(filepath, dst_dir):
 def parse(dirpath, cp=''):
     tokenize(os.path.join(dirpath, 'a.txt'), cp=cp)
     tokenize(os.path.join(dirpath, 'b.txt'), cp=cp)
-    
+
 if __name__ == '__main__':
     print('=' * 80)
     print('Preprocessing TRACE dataset')
     print('=' * 80)
 
-    base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    data_dir = os.path.join(base_dir, 'data')
-    trace_dir = os.path.join(data_dir, 'trace_balanced')
-    lib_dir = os.path.join(base_dir, 'lib')
+
+    trace_dir = os.path.join('/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/data/trace/')
     train_dir = os.path.join(trace_dir, 'train')
     dev_dir = os.path.join(trace_dir, 'dev')
     test_dir = os.path.join(trace_dir, 'test')
-    make_dirs([train_dir, dev_dir, test_dir])
+    test_all_dir = os.path.join(trace_dir, 'test_all')
+    make_dirs([train_dir, dev_dir, test_dir, test_all_dir])
 
-    # java classpath for calling Stanford parser
-    classpath = ':'.join([
-        lib_dir,
-        os.path.join(lib_dir, 'stanford-parser/stanford-parser.jar'),
-        os.path.join(lib_dir, 'stanford-parser/stanford-parser-3.5.1-models.jar')])
 
     # split into separate files
-    split(os.path.join(trace_dir, 'train_balanced.txt'), train_dir)
-    split(os.path.join(trace_dir, 'validation_balanced.txt'), dev_dir)
-    split(os.path.join(trace_dir, 'test_balanced.txt'), test_dir)
-    
-    
+    split(os.path.join(trace_dir, 'train_nosymbol.txt'), train_dir)
+    split(os.path.join(trace_dir, 'validation_nosymbol.txt'), dev_dir)
+    split(os.path.join(trace_dir, 'test_nosymbol.txt'), test_dir)
+    # split(os.path.join(trace_dir, 'test_all_nosymbol.txt'), test_all_dir)
+
+
     # parse sentences
  #   parse(train_dir, cp=classpath)
  #   parse(dev_dir, cp=classpath)

@@ -39,10 +39,10 @@ function tracenn.read_trace_dataset(dir, vocab)
   dataset.size = #dataset.lsents
   local id_file = torch.DiskFile(dir .. 'id.txt')
   local sim_file = torch.DiskFile(dir .. 'sim.txt')
-  dataset.ids = torch.IntTensor(dataset.size)
+  dataset.ids = {}
   dataset.labels = torch.Tensor(dataset.size)
   for i = 1, dataset.size do
-    dataset.ids[i] = id_file:readInt()
+    dataset.ids[i] = id_file:readChar()
   -- Jin: For Tracing, two categories is defined: 2 for link and 1 for no link
     dataset.labels[i] = sim_file:readInt()
   end
