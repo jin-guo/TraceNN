@@ -341,13 +341,18 @@ end
 -- Produce similarity predictions for each sentence pair in the dataset.
 function Trace:predict_dataset(dataset, artifact)
   local predictions = {}
+  local targets = dataset.labels
+  local loss = 0
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
     local lsent, rsent = dataset.lsents[i], dataset.rsents[i]
     local output = self:predict(lsent, rsent, artifact)
     predictions[i] = torch.exp(output)
+    local example_loss = self.criterion:forward(output, targets[i])
+    loss = loss + example_loss
   end
-  return predictions
+  loss = loss/dataset.size
+  return loss, predictions
 end
 
 function Trace:compute_loss_dataset(dataset, artifact)

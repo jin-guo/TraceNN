@@ -5,8 +5,8 @@ require('optim')
 require('xlua')
 require('sys')
 require('lfs')
-require('cutorch')
-require('cunn')
+-- require('cutorch')
+-- require('cunn')
 
 tracenn = {}
 
@@ -24,9 +24,10 @@ printf = utils.printf
 
 -- global paths (modify if desired)
 tracenn.output = '/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/'
-tracenn.data_dir        = tracenn.output .. 'data'
-tracenn.models_dir      = tracenn.output .. 'trained_models'
-tracenn.predictions_dir = tracenn.output .. 'predictions'
+tracenn.data_dir        = tracenn.output .. 'data/'
+tracenn.models_dir      = tracenn.output .. 'trained_models/'
+tracenn.predictions_dir = tracenn.output .. 'predictions/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/'
 
 -- share module parameters
 function share_params(cell, src)

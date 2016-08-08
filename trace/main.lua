@@ -18,12 +18,13 @@ local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default lstm)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 1)          	Number of layers (ignored for averagevect)
-  -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 50)         Number of training epochs
-  -s,--s_dim  (default 50)          Number of similairity module hidden dimension
-  -r,--learning_rate (default 1.00e-02) Learning Rate during Training NN Model
-  -b,--batch_size (default 20)      Batch Size of training data point for each update of parameters
+  -d,--dim    (default 50)        	RNN hidden dimension (the same with LSTM memory dim)
+  -e,--epochs (default 10)         Number of training epochs
+  -s,--s_dim  (default 20)          Number of similairity module hidden dimension
+  -r,--learning_rate (default 1.00e-01) Learning Rate during Training NN Model
+  -b,--batch_size (default 10)      Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 100)  Gradient clip threshold
+  -t,--test_model (default false) test model on the testing data
 ]]
 
 local model_name, model_class
@@ -53,16 +54,17 @@ local model_structure = args.model
 header('Use Model: ' ..model_name .. ' for Tracing')
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'/trace_new/'
+local data_dir = tracenn.data_dir ..'/trace_20/'
+local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
-local vocab = tracenn.Vocab(data_dir .. 'vocab_ptc_artifact_clean.txt')
+local vocab = tracenn.Vocab(artifact_dir .. 'vocab_ptc_artifact_clean.txt')
 -- load all artifact
-local artifact = tracenn.read_artifact(data_dir, vocab)
+local artifact = tracenn.read_artifact(artifact_dir, vocab)
 
 
 -- load embeddings
 print('Loading word embeddings')
-local emb_dir = tracenn.data_dir ..'/wordembedding/'
+local emb_dir = tracenn.data_dir ..'wordembedding/'
 local emb_prefix = emb_dir .. 'wiki_ptc_nosymbol_100d_w5_i5_vecs'
 local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
 local emb_dim
@@ -172,7 +174,7 @@ for i = 1, num_epochs do
     best_dev_model.params:copy(model.params)
   end
 
-  if(train_loss > last_train_loss and i>50 and model.learning_rate > 1e-8) then
+  if(train_loss > last_train_loss and i>20 and model.learning_rate > 1e-8) then
     model.learning_rate = model.learning_rate/2
     print("Learning rate changed to:", model.learning_rate)
   end
@@ -183,14 +185,17 @@ printf('finished training in %.2fs\n', sys.clock() - train_start)
 -- evaluate
 header('Evaluating on test set')
 printf('-- using model with dev score = %.4f\n', best_dev_loss)
-local test_loss, test_predictions = best_dev_model:predict_dataset(test_dataset, artifact)
-printf('-- test loss: %.4f\n', test_loss)
+if arg.test_model then
+  local test_loss, test_predictions = best_dev_model:predict_dataset(test_dataset, artifact)
+  printf('-- test loss: %.4f\n', test_loss)
 
--- create predictions and model directories if necessary
-if lfs.attributes(tracenn.predictions_dir) == nil then
-  lfs.mkdir(tracenn.predictions_dir)
+  -- create predictions directories if necessary
+  if lfs.attributes(tracenn.predictions_dir) == nil then
+    lfs.mkdir(tracenn.predictions_dir)
+  end
 end
 
+-- create model directories if necessary
 if lfs.attributes(tracenn.models_dir) == nil then
   lfs.mkdir(tracenn.models_dir)
 end
@@ -200,9 +205,9 @@ local file_idx = 1
 local predictions_save_path, model_save_path
 while true do
   predictions_save_path = string.format(
-    tracenn.predictions_dir .. '/rel-%s.%dl.%dd.%d.pred', args.model, args.layers, args.dim, file_idx)
+    tracenn.predictions_dir .. 'rel-%s.%dl.%dd.%d.pred', args.model, args.layers, args.dim, file_idx)
   model_save_path = string.format(
-    tracenn.models_dir .. '/rel-%s.%dl.%dd.%d.th', args.model, args.layers, args.dim, file_idx)
+    tracenn.models_dir .. 'rel-%s.%dl.%dd.%d.th', args.model, args.layers, args.dim, file_idx)
   -- check if the files already exist in the folder.
   if lfs.attributes(predictions_save_path) == nil and lfs.attributes(model_save_path) == nil then
     break
@@ -210,25 +215,27 @@ while true do
   file_idx = file_idx + 1
 end
 
--- write predictions to disk
-local predictions_file = torch.DiskFile(predictions_save_path, 'w')
-predictions_file:noAutoSpacing()
-print('writing predictions to ' .. predictions_save_path)
-for i = 1, #test_predictions do
-  if args.model == 'averagevect' then
-    for j = 1, test_predictions[i]:size(2) do
-      predictions_file:writeDouble(test_predictions[i][1][j])
-      predictions_file:writeString(',')
+if arg.test_model then
+  -- write predictions to disk
+  local predictions_file = torch.DiskFile(predictions_save_path, 'w')
+  predictions_file:noAutoSpacing()
+  print('writing predictions to ' .. predictions_save_path)
+  for i = 1, #test_predictions do
+    if args.model == 'averagevect' then
+      for j = 1, test_predictions[i]:size(2) do
+        predictions_file:writeDouble(test_predictions[i][1][j])
+        predictions_file:writeString(',')
+      end
+    else
+      for j = 1, test_predictions[i]:size(1) do
+        predictions_file:writeDouble(test_predictions[i][j])
+        predictions_file:writeString(',')
+      end
     end
-  else
-    for j = 1, test_predictions[i]:size(1) do
-      predictions_file:writeDouble(test_predictions[i][j])
-      predictions_file:writeString(',')
-    end
+    predictions_file:writeString('\n')
   end
-  predictions_file:writeString('\n')
+  predictions_file:close()
 end
-predictions_file:close()
 
 -- write models to disk
 print('writing model to ' .. model_save_path)

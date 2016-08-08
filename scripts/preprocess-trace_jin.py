@@ -64,22 +64,22 @@ if __name__ == '__main__':
     print('Preprocessing TRACE dataset')
     print('=' * 80)
 
-
-    trace_dir = os.path.join('/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/data/trace_new/')
+    artifact_dir = os.path.join('/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/data/artifact/')
+    trace_dir = os.path.join('/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/data/trace_20/')
     train_dir = os.path.join(trace_dir, 'train')
     dev_dir = os.path.join(trace_dir, 'dev')
     test_dir = os.path.join(trace_dir, 'test')
-    source_dir = os.path.join(trace_dir, 'src_artf')
-    target_dir = os.path.join(trace_dir, 'trg_artf')
+    source_dir = os.path.join(artifact_dir, 'src_artf')
+    target_dir = os.path.join(artifact_dir, 'trg_artf')
     make_dirs([train_dir, dev_dir, test_dir, source_dir, target_dir])
 
 
     # split into separate files
-    split(os.path.join(trace_dir, 'train.txt'), train_dir)
-    split(os.path.join(trace_dir, 'validation.txt'), dev_dir)
-    split(os.path.join(trace_dir, 'test.txt'), test_dir)
-    split_artifact(os.path.join(trace_dir, 'SourceArtifact.txt'), source_dir)
-    split_artifact(os.path.join(trace_dir, 'TargetArtifact.txt'), target_dir)
+    split(os.path.join(trace_dir, 'train_20.txt'), train_dir)
+    split(os.path.join(trace_dir, 'validation_20.txt'), dev_dir)
+    split(os.path.join(trace_dir, 'test_20.txt'), test_dir)
+    # split_artifact(os.path.join(trace_dir, 'SourceArtifact.txt'), source_dir)
+    # split_artifact(os.path.join(trace_dir, 'TargetArtifact.txt'), target_dir)
     # split(os.path.join(trace_dir, 'test_all_nosymbol.txt'), test_all_dir)
 
 
