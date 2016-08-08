@@ -16,12 +16,12 @@ end
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default averagevect)        Model architecture: [lstm, bilstm, averagevect]
+  -m,--model  (default lstm)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 2)          	Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 300)         Number of training epochs
+  -e,--epochs (default 50)         Number of training epochs
   -s,--s_dim  (default 50)          Number of similairity module hidden dimension
-  -r,--learning_rate (default 1.00e-01) Learning Rate during Training NN Model
+  -r,--learning_rate (default 1.00e-02) Learning Rate during Training NN Model
   -b,--batch_size (default 20)      Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 100)  Gradient clip threshold
 ]]
@@ -136,14 +136,16 @@ model:print_config()
 -- train
 local train_start = sys.clock()
 local best_dev_loss = 100000000
-local last_dev_loss = 100000000
+local last_train_loss = 100000000
 local best_dev_model = model
 header('Start Training model')
 for i = 1, num_epochs do
   local start = sys.clock()
   printf('-- epoch %d\n', i)
-  model:train(train_dataset, artifact)
+  local train_loss = model:train(train_dataset, artifact)
   printf('-- finished epoch in %.2fs\n', sys.clock() - start)
+  printf('-- train loss: %.4f\n', train_loss)
+
 
   -- uncomment to compute train scores
   --[[
@@ -152,7 +154,7 @@ for i = 1, num_epochs do
   printf('-- train score: %.4f\n', train_score)
   --]]
 
-  local dev_loss = model:compute_loss_dataset(dev_dataset, artifact)
+  local dev_loss = model:predict_dataset(dev_dataset, artifact)
   printf('-- dev loss: %.4f\n', dev_loss)
 
   if dev_loss < best_dev_loss then
@@ -170,19 +172,18 @@ for i = 1, num_epochs do
     best_dev_model.params:copy(model.params)
   end
 
-  if(dev_loss > last_dev_loss and i>50 and model.learning_rate > 1e-8) then
+  if(train_loss > last_train_loss and i>50 and model.learning_rate > 1e-8) then
     model.learning_rate = model.learning_rate/2
     print("Learning rate changed to:", model.learning_rate)
   end
-  last_dev_loss = dev_loss
+  last_train_loss = train_loss
 end
 printf('finished training in %.2fs\n', sys.clock() - train_start)
 
 -- evaluate
 header('Evaluating on test set')
 printf('-- using model with dev score = %.4f\n', best_dev_loss)
-local test_predictions = best_dev_model:predict_dataset(test_dataset, artifact)
-local test_loss = best_dev_model:compute_loss_dataset(test_dataset, artifact)
+local test_loss, test_predictions = best_dev_model:predict_dataset(test_dataset, artifact)
 printf('-- test loss: %.4f\n', test_loss)
 
 -- create predictions and model directories if necessary

@@ -12,8 +12,8 @@ function AverageVectTrace:__init(config)
   self.reg           = config.reg           or 0
   self.structure     = config.structure     or 'averagevect'
   self.sim_nhidden   = config.sim_nhidden   or 20
-
   self.use_cuda      = false
+
   -- word embedding
   self.emb_vecs = config.emb_vecs
   self.emb_dim = config.emb_vecs:size(2)
@@ -57,7 +57,7 @@ function AverageVectTrace:new_sim_module()
   local sim_module = nn.Sequential()
     :add(vecs_to_input)
     :add(nn.Linear(input_dim, self.sim_nhidden))
-    :add(nn.ReLU())    -- does better than tanh
+    :add(nn.Sigmoid())    -- does better than tanh
     :add(nn.Linear(self.sim_nhidden, self.num_classes))
     :add(nn.LogSoftMax())
   return sim_module
@@ -150,7 +150,8 @@ function AverageVectTrace:train(dataset, artifact)
   end
   xlua.progress(dataset.size, dataset.size)
   train_loss = train_loss/dataset.size
-  print('Train loss', train_loss)
+  -- print('Train loss', train_loss)
+  return train_loss
 end
 
 -- Predict the similarity of a sentence pair.
@@ -184,13 +185,18 @@ end
 -- Produce similarity predictions for each sentence pair in the dataset.
 function AverageVectTrace:predict_dataset(dataset, artifact)
   local predictions = {}
+  local targets = dataset.labels
+  local loss = 0
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
     local lsent, rsent = dataset.lsents[i], dataset.rsents[i]
     local output = self:predict(lsent, rsent, artifact)
     predictions[i] = torch.exp(output)
+    local example_loss = self.criterion:forward(output, targets[i])
+    loss = loss + example_loss
   end
-  return predictions
+  loss = loss/dataset.size
+  return loss, predictions
 end
 
 function AverageVectTrace:compute_loss_dataset(dataset, artifact)

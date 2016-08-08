@@ -15,7 +15,7 @@ function Trace:__init(config)
   self.structure     = config.structure     or 'lstm'
   self.sim_nhidden   = config.sim_nhidden   or 10
   self.grad_clip     = config.grad_clip     or 10
-
+  self.use_cuda      = true  -- use GPU flag
 
   -- word embedding
   self.emb_vecs = config.emb_vecs
@@ -23,13 +23,17 @@ function Trace:__init(config)
 
   -- number of similarity rating classes
   self.num_classes = 2
-  self.class_weight = torch.Tensor({0.001, 1})
+  self.class_weight = torch.Tensor({1, 500})
 
   -- optimizer configuration
   self.optim_state = { learningRate = self.learning_rate }
 
   -- Set Objective as minimize Negative Log Likelihood
-  self.criterion = nn.ClassNLLCriterion()
+  -- Remember to set the size_average to false to use the effect of weight!!
+  self.criterion = nn.ClassNLLCriterion(self.class_weight, false)
+  if self.use_cuda then
+    self.criterion = self.criterion:cuda()
+  end
 
   -- initialize RNN model
   local rnn_config = {
@@ -69,6 +73,17 @@ function Trace:__init(config)
 
   -- similarity model
   self.sim_module = self:new_sim_module()
+  if self.use_cuda then
+    self.lrnn = self.lrnn:cuda()
+    self.rrnn = self.rrnn:cuda()
+    if string.starts(self.structure,'bi') then
+      self.lrnn_b = self.lrnn_b:cuda()
+      self.rrnn_b = self.rrnn_b:cuda()
+    end
+    self.sim_module = self.sim_module:cuda()
+    -- modules = modules:cuda()
+  end
+
   local modules = nn.Parallel()
     :add(self.lrnn)
     :add(self.sim_module)
@@ -89,6 +104,7 @@ function Trace:__init(config)
     share_params(self.lrnn_b, self.lrnn)
     share_params(self.rrnn_b, self.lrnn)
   end
+
 end
 
 function Trace:new_sim_module()
@@ -132,7 +148,7 @@ function Trace:new_sim_module()
   return sim_module
 end
 
-function Trace:train(dataset)
+function Trace:train(dataset, artifact)
   self.lrnn:training()
   self.rrnn:training()
   if string.starts(self.structure,'bi') then
@@ -163,11 +179,25 @@ function Trace:train(dataset)
       local loss = 0
       for j = 1, batch_size do
         local idx = indices[i + j - 1]
-        local lsent, rsent = dataset.lsents[idx], dataset.rsents[idx]
-        local linputs = self.emb_vecs:index(1, lsent:long()):double()
-        local rinputs = self.emb_vecs:index(1, rsent:long()):double()
+        local linputs, rinputs
 
-        -- get sentence representations
+        -- load input artifact content using id
+        if artifact.src_artfs_ids[dataset.lsents[idx]]~= nil then
+          linputs = artifact.src_artfs[artifact.src_artfs_ids[dataset.lsents[idx]]]
+        else
+          print('Cannot find source:', dataset.lsents[idx])
+          break
+        end
+        if artifact.trg_artfs_ids[dataset.rsents[idx]]~= nil then
+          rinputs = artifact.trg_artfs[artifact.trg_artfs_ids[dataset.rsents[idx]]]
+        else
+          print('Cannot find target:', rsents[idx])
+          break
+        end
+        if self.use_cuda then
+          linputs = linputs:cuda()
+          rinputs = rinputs:cuda()
+        end        -- get sentence representations
         local inputs
         if not string.starts(self.structure,'bi') then
           inputs = {self.lrnn:forward(linputs), self.rrnn:forward(rinputs)}
@@ -183,14 +213,6 @@ function Trace:train(dataset)
         -- compute relatedness
         local output = self.sim_module:forward(inputs)
 
-  --[[      print("Input left:",inputs[1])
-        print("Input right:",inputs[2])
-
-        print("Log Output:", output)
-        print("Output:",torch.exp(output))
-        print("Target:",targets[j])
-        ]] --
-
         -- compute loss and backpropagate
         local example_loss = self.criterion:forward(output, targets[j])
 
@@ -199,10 +221,10 @@ function Trace:train(dataset)
         local rep_grad = self.sim_module:backward(inputs, sim_grad)
 
         if not string.starts(self.structure,'bi') then
-          local rnn_grad = self:RNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
+          local rnn_grad = self:RNN_backward(linputs, rinputs, rep_grad)
           -- print("RNN grad", rnn_grad)
         elseif  string.starts(self.structure,'bi') then
-          self:BiRNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
+          self:BiRNN_backward(linputs, rinputs, rep_grad)
         end
       end
       train_loss = train_loss + loss
@@ -238,23 +260,23 @@ function Trace:train(dataset)
   train_loss = train_loss/dataset.size
   xlua.progress(dataset.size, dataset.size)
   print('Training loss', train_loss)
-
+  return train_loss
 end
 
 -- LSTM backward propagation
-function Trace:RNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
+function Trace:RNN_backward(linputs, rinputs, rep_grad)
   local lgrad, rgrad
   if self.num_layers == 1 then
-    lgrad = torch.zeros(lsent:nElement(), self.hidden_dim)
-    rgrad = torch.zeros(rsent:nElement(), self.hidden_dim)
-    lgrad[lsent:nElement()] = rep_grad[1]
-    rgrad[rsent:nElement()] = rep_grad[2]
+    lgrad = torch.zeros(linputs:size(1), self.hidden_dim)
+    rgrad = torch.zeros(rinputs:size(1), self.hidden_dim)
+    lgrad[linputs:size(1)] = rep_grad[1]
+    rgrad[rinputs:size(1)] = rep_grad[2]
   else
-    lgrad = torch.zeros(lsent:nElement(), self.num_layers, self.hidden_dim)
-    rgrad = torch.zeros(rsent:nElement(), self.num_layers, self.hidden_dim)
+    lgrad = torch.zeros(linputs:size(1), self.num_layers, self.hidden_dim)
+    rgrad = torch.zeros(rinputs:size(1), self.num_layers, self.hidden_dim)
     for l = 1, self.num_layers do
-      lgrad[{lsent:nElement(), l, {}}] = rep_grad[1][l]
-      rgrad[{rsent:nElement(), l, {}}] = rep_grad[2][l]
+      lgrad[{linputs:size(1), l, {}}] = rep_grad[1][l]
+      rgrad[{rinputs:size(1), l, {}}] = rep_grad[2][l]
     end
   end
   self.lrnn:backward(linputs, lgrad)
@@ -263,25 +285,25 @@ function Trace:RNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
 end
 
 -- Bidirectional LSTM backward propagation
-function Trace:BiRNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
+function Trace:BiRNN_backward(linputs, rinputs, rep_grad)
   local lgrad, lgrad_b, rgrad, rgrad_b
   if self.num_layers == 1 then
-    lgrad   = torch.zeros(lsent:nElement(), self.hidden_dim)
-    lgrad_b = torch.zeros(lsent:nElement(), self.hidden_dim)
-    rgrad   = torch.zeros(rsent:nElement(), self.hidden_dim)
-    rgrad_b = torch.zeros(rsent:nElement(), self.hidden_dim)
-    lgrad[lsent:nElement()] = rep_grad[1]
-    rgrad[rsent:nElement()] = rep_grad[3]
+    lgrad   = torch.zeros(linputs:size(1), self.hidden_dim)
+    lgrad_b = torch.zeros(linputs:size(1), self.hidden_dim)
+    rgrad   = torch.zeros(rinputs:size(1), self.hidden_dim)
+    rgrad_b = torch.zeros(rinputs:size(1), self.hidden_dim)
+    lgrad[linputs:size(1)] = rep_grad[1]
+    rgrad[rinputs:size(1)] = rep_grad[3]
     lgrad_b[1] = rep_grad[2]
     rgrad_b[1] = rep_grad[4]
   else
-    lgrad   = torch.zeros(lsent:nElement(), self.num_layers, self.hidden_dim)
-    lgrad_b = torch.zeros(lsent:nElement(), self.num_layers, self.hidden_dim)
-    rgrad   = torch.zeros(rsent:nElement(), self.num_layers, self.hidden_dim)
-    rgrad_b = torch.zeros(rsent:nElement(), self.num_layers, self.hidden_dim)
+    lgrad   = torch.zeros(linputs:size(1), self.num_layers, self.hidden_dim)
+    lgrad_b = torch.zeros(linputs:size(1), self.num_layers, self.hidden_dim)
+    rgrad   = torch.zeros(rinputs:size(1), self.num_layers, self.hidden_dim)
+    rgrad_b = torch.zeros(rinputs:size(1), self.num_layers, self.hidden_dim)
     for l = 1, self.num_layers do
-      lgrad[{lsent:nElement(), l, {}}] = rep_grad[1][l]
-      rgrad[{rsent:nElement(), l, {}}] = rep_grad[3][l]
+      lgrad[{linputs:size(1), l, {}}] = rep_grad[1][l]
+      rgrad[{rinputs:size(1), l, {}}] = rep_grad[3][l]
       lgrad_b[{1, l, {}}] = rep_grad[2][l]
       rgrad_b[{1, l, {}}] = rep_grad[4][l]
     end
@@ -293,11 +315,22 @@ function Trace:BiRNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
 end
 
 -- Predict the similarity of a sentence pair (log probability, should use output:exp() for probability).
-function Trace:predict(lsent, rsent)
+function Trace:predict(lsent, rsent, artifact)
   self.lrnn:evaluate()
   self.rrnn:evaluate()
-  local linputs = self.emb_vecs:index(1, lsent:long()):double()
-  local rinputs = self.emb_vecs:index(1, rsent:long()):double()
+  local linputs, rinputs
+  if artifact.src_artfs_ids[lsent]~= nil then
+    linputs = artifact.src_artfs[artifact.src_artfs_ids[lsent]]
+  else
+    print('Cannot find source:', lsent)
+    return nil
+  end
+  if artifact.trg_artfs_ids[rsent]~= nil then
+    rinputs = artifact.trg_artfs[artifact.trg_artfs_ids[rsent]]
+  else
+    print('Cannot find target:', rsent)
+    return nil
+  end
   local inputs
   if not  string.starts(self.structure,'bi') then
     inputs = {self.lrnn:forward(linputs), self.rrnn:forward(rinputs)}
@@ -324,24 +357,24 @@ function Trace:predict(lsent, rsent)
 end
 
 -- Produce similarity predictions for each sentence pair in the dataset.
-function Trace:predict_dataset(dataset)
+function Trace:predict_dataset(dataset, artifact)
   local predictions = {}
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
     local lsent, rsent = dataset.lsents[i], dataset.rsents[i]
-    local output = self:predict(lsent, rsent)
+    local output = self:predict(lsent, rsent, artifact)
     predictions[i] = torch.exp(output)
   end
   return predictions
 end
 
-function Trace:compute_loss_dataset(dataset)
+function Trace:compute_loss_dataset(dataset, artifact)
   local targets = dataset.labels
   local loss = 0
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
     local lsent, rsent = dataset.lsents[i], dataset.rsents[i]
-    local output = self:predict(lsent, rsent)
+    local output = self:predict(lsent, rsent, artifact)
     local example_loss = self.criterion:forward(output, targets[i])
     loss = loss + example_loss
   end
@@ -373,13 +406,14 @@ end
 function Trace:save(path)
   local config = {
     batch_size    = self.batch_size,
-    emb_vecs      = self.emb_vecs:float(),
+    emb_vecs      = self.emb_vecs,
     learning_rate = self.learning_rate,
     num_layers    = self.num_layers,
     hidden_dim    = self.hidden_dim,
     sim_nhidden   = self.sim_nhidden,
     reg           = self.reg,
     structure     = self.structure,
+    grad_clip     = self.grad_clip
   }
 
   torch.save(path, {
@@ -390,7 +424,7 @@ end
 
 function Trace.load(path)
   local state = torch.load(path)
-  local model = treelstm.Trace.new(state.config)
+  local model = tracenn.RNNTrace.new(state.config)
   model.params:copy(state.params)
   return model
 end
