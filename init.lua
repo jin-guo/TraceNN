@@ -5,6 +5,8 @@ require('optim')
 require('xlua')
 require('sys')
 require('lfs')
+require('cutorch')
+require('cunn')
 
 tracenn = {}
 

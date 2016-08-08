@@ -45,6 +45,16 @@ def split(filepath, dst_dir):
                 bfile.write(b + '\n')
                 simfile.write(sim + '\n')
 
+def split_artifact(filepath, dst_dir):
+    with open(filepath) as datafile, \
+         open(os.path.join(dst_dir, 'id.txt'), 'w') as idfile, \
+         open(os.path.join(dst_dir, 'sentence.txt'), 'w') as sentencefile:
+        # data start from the first line
+            for line in datafile:
+                i, s = line.strip().split('\t')
+                idfile.write(i + '\n')
+                sentencefile.write(s + '\n')
+
 def parse(dirpath, cp=''):
     tokenize(os.path.join(dirpath, 'a.txt'), cp=cp)
     tokenize(os.path.join(dirpath, 'b.txt'), cp=cp)
@@ -55,18 +65,21 @@ if __name__ == '__main__':
     print('=' * 80)
 
 
-    trace_dir = os.path.join('/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/data/trace/')
+    trace_dir = os.path.join('/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/data/trace_new/')
     train_dir = os.path.join(trace_dir, 'train')
     dev_dir = os.path.join(trace_dir, 'dev')
     test_dir = os.path.join(trace_dir, 'test')
-    test_all_dir = os.path.join(trace_dir, 'test_all')
-    make_dirs([train_dir, dev_dir, test_dir, test_all_dir])
+    source_dir = os.path.join(trace_dir, 'src_artf')
+    target_dir = os.path.join(trace_dir, 'trg_artf')
+    make_dirs([train_dir, dev_dir, test_dir, source_dir, target_dir])
 
 
     # split into separate files
-    split(os.path.join(trace_dir, 'train_nosymbol.txt'), train_dir)
-    split(os.path.join(trace_dir, 'validation_nosymbol.txt'), dev_dir)
-    split(os.path.join(trace_dir, 'test_nosymbol.txt'), test_dir)
+    split(os.path.join(trace_dir, 'train.txt'), train_dir)
+    split(os.path.join(trace_dir, 'validation.txt'), dev_dir)
+    split(os.path.join(trace_dir, 'test.txt'), test_dir)
+    split_artifact(os.path.join(trace_dir, 'SourceArtifact.txt'), source_dir)
+    split_artifact(os.path.join(trace_dir, 'TargetArtifact.txt'), target_dir)
     # split(os.path.join(trace_dir, 'test_all_nosymbol.txt'), test_all_dir)
 
 

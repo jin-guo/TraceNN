@@ -13,6 +13,7 @@ function AverageVectTrace:__init(config)
   self.structure     = config.structure     or 'averagevect'
   self.sim_nhidden   = config.sim_nhidden   or 20
 
+  self.use_cuda      = false
   -- word embedding
   self.emb_vecs = config.emb_vecs
   self.emb_dim = config.emb_vecs:size(2)
@@ -24,11 +25,20 @@ function AverageVectTrace:__init(config)
   -- optimizer configuration
   self.optim_state = { learningRate = self.learning_rate }
 
-  -- KL divergence optimization objective
-  self.criterion = nn.ClassNLLCriterion(self.class_weight)
+  -- NLL optimization objective with weighted class
+  -- Remember to set the size_average to false!!
+  self.criterion = nn.ClassNLLCriterion(self.class_weight, false)
+  if self.use_cuda then
+    self.criterion = self.criterion:cuda()
+  end
+
 
   -- similarity model
   self.sim_module = self:new_sim_module()
+  if self.use_cuda then
+    self.sim_module = self.sim_module:cuda()
+  end
+
   self.params, self.grad_params = self.sim_module:getParameters()
 end
 
@@ -53,7 +63,7 @@ function AverageVectTrace:new_sim_module()
   return sim_module
 end
 
-function AverageVectTrace:train(dataset)
+function AverageVectTrace:train(dataset, artifact)
   local indices = torch.randperm(dataset.size)
   local train_loss = 0
   for i = 1, dataset.size, self.batch_size do
@@ -74,13 +84,29 @@ function AverageVectTrace:train(dataset)
       local loss = 0
       for j = 1, batch_size do
         local idx = indices[i + j - 1]
-        local lsent, rsent = dataset.lsents[idx], dataset.rsents[idx]
-        local linputs = self.emb_vecs:index(1, lsent:long())
-        local rinputs = self.emb_vecs:index(1, rsent:long())
+        -- local lsent, rsent = dataset.lsents[idx], dataset.rsents[idx]
+        -- local linputs = self.emb_vecs:index(1, lsent:long())
+        -- local rinputs = self.emb_vecs:index(1, rsent:long())
+
+        local linputs,rinputs
+        if artifact.src_artfs_ids[dataset.lsents[idx]]~= nil then
+          linputs = artifact.src_artfs[artifact.src_artfs_ids[dataset.lsents[idx]]]
+        else
+          break
+        end
+        if artifact.trg_artfs_ids[dataset.rsents[idx]]~= nil then
+          rinputs = artifact.trg_artfs[artifact.trg_artfs_ids[dataset.rsents[idx]]]
+        else
+          break
+        end
 
 
         local linput_aver = torch.sum(linputs, 1):div(linputs:size(1))
         local rinput_aver = torch.sum(rinputs, 1):div(rinputs:size(1))
+        if self.use_cuda then
+          linput_aver = linput_aver:cuda()
+          rinput_aver = rinput_aver:cuda()
+        end
 
         -- get sentence representations
         local inputs = {linput_aver, rinput_aver}
@@ -89,7 +115,14 @@ function AverageVectTrace:train(dataset)
 
         -- compute loss and backpropagate
         local example_loss = self.criterion:forward(output, targets[j])
-    --    print("Loss:",example_loss)
+        -- if(targets[j] == 2) then
+        --   print('Weight:',self.criterion.weights)
+        --   print('P:', torch.exp(output))
+        --   print('output:', output)
+        --   print('target:', targets[j])
+        --   print("Loss:",example_loss)
+        -- end
+
 
         loss = loss + example_loss
         local sim_grad = self.criterion:backward(output, targets[j])
@@ -121,11 +154,26 @@ function AverageVectTrace:train(dataset)
 end
 
 -- Predict the similarity of a sentence pair.
-function AverageVectTrace:predict(lsent, rsent)
-  local linputs = self.emb_vecs:index(1, lsent:long())
-  local rinputs = self.emb_vecs:index(1, rsent:long())
+function AverageVectTrace:predict(lsent, rsent, artifact)
+  local linputs, rinputs
+  if artifact.src_artfs_ids[lsent]~= nil then
+    linputs = artifact.src_artfs[artifact.src_artfs_ids[lsent]]
+  else
+    print('Cannot find source:', lsent)
+    return nil
+  end
+  if artifact.trg_artfs_ids[rsent]~= nil then
+    rinputs = artifact.trg_artfs[artifact.trg_artfs_ids[rsent]]
+  else
+    print('Cannot find target:', rsent)
+    return nil
+  end
   local linput_aver = torch.sum(linputs, 1):div(linputs:size(1))
   local rinput_aver = torch.sum(rinputs, 1):div(rinputs:size(1))
+  if self.use_cuda then
+    linput_aver = linput_aver:cuda()
+    rinput_aver = rinput_aver:cuda()
+  end
   -- get sentence representations
   local inputs = {linput_aver, rinput_aver}
 
@@ -134,24 +182,24 @@ function AverageVectTrace:predict(lsent, rsent)
 end
 
 -- Produce similarity predictions for each sentence pair in the dataset.
-function AverageVectTrace:predict_dataset(dataset)
+function AverageVectTrace:predict_dataset(dataset, artifact)
   local predictions = {}
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
     local lsent, rsent = dataset.lsents[i], dataset.rsents[i]
-    local output = self:predict(lsent, rsent)
+    local output = self:predict(lsent, rsent, artifact)
     predictions[i] = torch.exp(output)
   end
   return predictions
 end
 
-function AverageVectTrace:compute_loss_dataset(dataset)
+function AverageVectTrace:compute_loss_dataset(dataset, artifact)
   local targets = dataset.labels
   local loss = 0
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
     local lsent, rsent = dataset.lsents[i], dataset.rsents[i]
-    local output = self:predict(lsent, rsent)
+    local output = self:predict(lsent, rsent, artifact)
     local example_loss = self.criterion:forward(output, targets[i])
     loss = loss + example_loss
   end
