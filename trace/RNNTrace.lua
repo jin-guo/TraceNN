@@ -15,7 +15,6 @@ function Trace:__init(config)
   self.structure     = config.structure     or 'lstm'
   self.sim_nhidden   = config.sim_nhidden   or 10
   self.grad_clip     = config.grad_clip     or 10
-  self.use_cuda      = true  -- use GPU flag
 
   -- word embedding
   self.emb_vecs = config.emb_vecs
@@ -31,9 +30,6 @@ function Trace:__init(config)
   -- Set Objective as minimize Negative Log Likelihood
   -- Remember to set the size_average to false to use the effect of weight!!
   self.criterion = nn.ClassNLLCriterion(self.class_weight, false)
-  if self.use_cuda then
-    self.criterion = self.criterion:cuda()
-  end
 
   -- initialize RNN model
   local rnn_config = {
@@ -73,17 +69,6 @@ function Trace:__init(config)
 
   -- similarity model
   self.sim_module = self:new_sim_module()
-  if self.use_cuda then
-    self.lrnn = self.lrnn:cuda()
-    self.rrnn = self.rrnn:cuda()
-    if string.starts(self.structure,'bi') then
-      self.lrnn_b = self.lrnn_b:cuda()
-      self.rrnn_b = self.rrnn_b:cuda()
-    end
-    self.sim_module = self.sim_module:cuda()
-    -- modules = modules:cuda()
-  end
-
   local modules = nn.Parallel()
     :add(self.lrnn)
     :add(self.sim_module)
@@ -94,6 +79,7 @@ function Trace:__init(config)
     self.rnn_params_element_number =
       self.rnn_params_element_number + self.rnn_params[i]:nElement()
   end
+
   -- print('RNN grad_params',self.rnn_grad_params )
 
   -- share must only be called after getParameters, since this changes the
@@ -104,7 +90,6 @@ function Trace:__init(config)
     share_params(self.lrnn_b, self.lrnn)
     share_params(self.rrnn_b, self.lrnn)
   end
-
 end
 
 function Trace:new_sim_module()
@@ -194,10 +179,7 @@ function Trace:train(dataset, artifact)
           print('Cannot find target:', rsents[idx])
           break
         end
-        if self.use_cuda then
-          linputs = linputs:cuda()
-          rinputs = rinputs:cuda()
-        end        -- get sentence representations
+         -- get sentence representations
         local inputs
         if not string.starts(self.structure,'bi') then
           inputs = {self.lrnn:forward(linputs), self.rrnn:forward(rinputs)}
@@ -285,25 +267,25 @@ function Trace:RNN_backward(linputs, rinputs, rep_grad)
 end
 
 -- Bidirectional LSTM backward propagation
-function Trace:BiRNN_backward(linputs, rinputs, rep_grad)
+function Trace:BiRNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
   local lgrad, lgrad_b, rgrad, rgrad_b
   if self.num_layers == 1 then
     lgrad   = torch.zeros(linputs:size(1), self.hidden_dim)
     lgrad_b = torch.zeros(linputs:size(1), self.hidden_dim)
-    rgrad   = torch.zeros(rinputs:size(1), self.hidden_dim)
-    rgrad_b = torch.zeros(rinputs:size(1), self.hidden_dim)
+    rgrad   = torch.zeros(rsent:nElement(), self.hidden_dim)
+    rgrad_b = torch.zeros(rsent:nElement(), self.hidden_dim)
     lgrad[linputs:size(1)] = rep_grad[1]
-    rgrad[rinputs:size(1)] = rep_grad[3]
+    rgrad[rsent:nElement()] = rep_grad[3]
     lgrad_b[1] = rep_grad[2]
     rgrad_b[1] = rep_grad[4]
   else
     lgrad   = torch.zeros(linputs:size(1), self.num_layers, self.hidden_dim)
     lgrad_b = torch.zeros(linputs:size(1), self.num_layers, self.hidden_dim)
-    rgrad   = torch.zeros(rinputs:size(1), self.num_layers, self.hidden_dim)
-    rgrad_b = torch.zeros(rinputs:size(1), self.num_layers, self.hidden_dim)
+    rgrad   = torch.zeros(rsent:nElement(), self.num_layers, self.hidden_dim)
+    rgrad_b = torch.zeros(rsent:nElement(), self.num_layers, self.hidden_dim)
     for l = 1, self.num_layers do
-      lgrad[{linputs:size(1), l, {}}] = rep_grad[1][l]
-      rgrad[{rinputs:size(1), l, {}}] = rep_grad[3][l]
+      lgrad[{lsent:nElement(), l, {}}] = rep_grad[1][l]
+      rgrad[{rsent:nElement(), l, {}}] = rep_grad[3][l]
       lgrad_b[{1, l, {}}] = rep_grad[2][l]
       rgrad_b[{1, l, {}}] = rep_grad[4][l]
     end

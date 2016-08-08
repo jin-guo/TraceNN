@@ -17,7 +17,7 @@ end
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default lstm)        Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 2)          	Number of layers (ignored for averagevect)
+  -l,--layers (default 1)          	Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
   -e,--epochs (default 50)         Number of training epochs
   -s,--s_dim  (default 50)          Number of similairity module hidden dimension
