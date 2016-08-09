@@ -23,7 +23,7 @@ include('trace/AverageVectTrace.lua')
 printf = utils.printf
 
 -- global paths (modify if desired)
-tracenn.output = '/Users/Jinguo/Dropbox/Projects/2016_summer/tracenn/'
+tracenn.output = '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/'
 tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'

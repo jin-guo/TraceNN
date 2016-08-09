@@ -22,7 +22,7 @@ function Trace:__init(config)
 
   -- number of similarity rating classes
   self.num_classes = 2
-  self.class_weight = torch.Tensor({1, 500})
+  self.class_weight = torch.Tensor({1, 20})
 
   -- optimizer configuration
   self.optim_state = { learningRate = self.learning_rate }
@@ -212,6 +212,7 @@ function Trace:train(dataset, artifact)
       train_loss = train_loss + loss
 
       loss = loss / batch_size
+      print('Loss:', loss)
       self.grad_params:div(batch_size)
 
       -- Gradient clipping: if the norm of rnn gradient is bigger than threshold

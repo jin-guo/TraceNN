@@ -17,11 +17,11 @@ end
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default lstm)        Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 1)          	Number of layers (ignored for averagevect)
-  -d,--dim    (default 50)        	RNN hidden dimension (the same with LSTM memory dim)
+  -l,--layers (default 2)          	Number of layers (ignored for averagevect)
+  -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
   -e,--epochs (default 10)         Number of training epochs
   -s,--s_dim  (default 20)          Number of similairity module hidden dimension
-  -r,--learning_rate (default 1.00e-01) Learning Rate during Training NN Model
+  -r,--learning_rate (default 1.00e-03) Learning Rate during Training NN Model
   -b,--batch_size (default 10)      Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 100)  Gradient clip threshold
   -t,--test_model (default false) test model on the testing data
@@ -174,7 +174,7 @@ for i = 1, num_epochs do
     best_dev_model.params:copy(model.params)
   end
 
-  if(train_loss > last_train_loss and i>20 and model.learning_rate > 1e-8) then
+  if(train_loss > last_train_loss and model.learning_rate > 1e-8) then
     model.learning_rate = model.learning_rate/2
     print("Learning rate changed to:", model.learning_rate)
   end
