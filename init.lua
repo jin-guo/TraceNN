@@ -27,6 +27,7 @@ tracenn.output = '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/'
 tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'
+tracenn.progress_dir = tracenn.output .. 'progress/'
 tracenn.artifact_dir = tracenn.data_dir .. 'artifact/'
 
 -- share module parameters

@@ -201,10 +201,11 @@ function Trace:train(dataset, artifact)
         loss = loss + example_loss
         local sim_grad = self.criterion:backward(output, targets[j])
         local rep_grad = self.sim_module:backward(inputs, sim_grad)
+        -- print("Sim grad", sim_grad)
 
         if not string.starts(self.structure,'bi') then
           local rnn_grad = self:RNN_backward(linputs, rinputs, rep_grad)
-          -- print("RNN grad", rnn_grad)
+          -- print("RNN grad:", rnn_grad)
         elseif  string.starts(self.structure,'bi') then
           self:BiRNN_backward(linputs, rinputs, rep_grad)
         end
@@ -212,12 +213,20 @@ function Trace:train(dataset, artifact)
       train_loss = train_loss + loss
 
       loss = loss / batch_size
-      print('Loss:', loss)
+      -- print('Loss:', loss)
       self.grad_params:div(batch_size)
 
       -- Gradient clipping: if the norm of rnn gradient is bigger than threshold
       -- scale the gradient to
+      -- local sim_params = self.params:narrow(1,self.rnn_params_element_number, self.params:nElement()-self.rnn_params_element_number)
+      -- -- print("sim_params:", sim_params)
+      -- local rnn_params = self.params:narrow(1,1,self.rnn_params_element_number)
+      -- -- print("rnn_params:", rnn_params)
+      -- local sim_grad_params = self.grad_params:narrow(1,self.rnn_params_element_number, self.params:nElement()-self.rnn_params_element_number)
+      -- -- print("sim_grad_params:", sim_grad_params)
       local rnn_grad_params = self.grad_params:narrow(1,1,self.rnn_params_element_number)
+      -- print("rnn_grad_params:", rnn_grad_params)
+
       local rnn_grad_norm = torch.norm(rnn_grad_params)
       if rnn_grad_norm > self.grad_clip then
         print('clipping gradient')
@@ -384,7 +393,6 @@ function Trace:print_config()
   printf('%-25s = %d\n',   'RNN layers', self.num_layers)
   printf('%-25s = %d\n',   'sim module hidden dim', self.sim_nhidden)
   printf('%-25s = %d\n',   'Gradient clip', self.grad_clip)
-
 end
 
 --

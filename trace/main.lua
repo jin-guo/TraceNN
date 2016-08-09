@@ -16,14 +16,14 @@ end
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default lstm)        Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 2)          	Number of layers (ignored for averagevect)
-  -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 10)         Number of training epochs
-  -s,--s_dim  (default 20)          Number of similairity module hidden dimension
-  -r,--learning_rate (default 1.00e-03) Learning Rate during Training NN Model
-  -b,--batch_size (default 1)      Batch Size of training data point for each update of parameters
-  -c,--grad_clip (default 100)  Gradient clip threshold
+  -m,--model  (default averagevect)        Model architecture: [lstm, bilstm, averagevect]
+  -l,--layers (default 1)          	Number of layers (ignored for averagevect)
+  -d,--dim    (default 10)        	RNN hidden dimension (the same with LSTM memory dim)
+  -e,--epochs (default 1)         Number of training epochs
+  -s,--s_dim  (default 1)          Number of similairity module hidden dimension
+  -r,--learning_rate (default 1.00e-01) Learning Rate during Training NN Model
+  -b,--batch_size (default 20)      Batch Size of training data point for each update of parameters
+  -c,--grad_clip (default 15)  Gradient clip threshold
   -t,--test_model (default false) test model on the testing data
 ]]
 
@@ -92,7 +92,7 @@ emb_vocab = nil
 emb_vecs = nil
 collectgarbage()
 
--- map artifact to word embeddings
+-- Map artifact to word embeddings
 for i = 1, #artifact.src_artfs do
   local src_artf = artifact.src_artfs[i]
   artifact.src_artfs[i] = vecs:index(1, src_artf:long())
@@ -115,7 +115,7 @@ printf('num train = %d\n', train_dataset.size)
 printf('num dev   = %d\n', dev_dataset.size)
 printf('num test  = %d\n', test_dataset.size)
 
--- initialize model
+-- Initialize model
 local model = model_class{
   emb_vecs   = vecs,
   structure  = model_structure,
@@ -127,7 +127,7 @@ local model = model_class{
   grad_clip = args.grad_clip,
 }
 
--- number of epochs to train
+-- Number of epochs to train
 local num_epochs = args.epochs
 
 -- print information
@@ -140,8 +140,14 @@ local train_start = sys.clock()
 local best_dev_loss = 100000000
 local last_train_loss = 100000000
 local best_dev_model = model
+-- Save the progress result to tables
+local train_loss_progress = {}
+local dev_loss_progress = {}
+local learning_rate_progress = {}
+
 header('Start Training model')
 for i = 1, num_epochs do
+  learning_rate_progress[i] = model.learning_rate
   local start = sys.clock()
   printf('-- epoch %d\n', i)
   local train_loss = model:train(train_dataset, artifact)
@@ -179,6 +185,8 @@ for i = 1, num_epochs do
     print("Learning rate changed to:", model.learning_rate)
   end
   last_train_loss = train_loss
+  train_loss_progress[i] = train_loss
+  dev_loss_progress[i] = dev_loss
 end
 printf('finished training in %.2fs\n', sys.clock() - train_start)
 
@@ -200,9 +208,15 @@ if lfs.attributes(tracenn.models_dir) == nil then
   lfs.mkdir(tracenn.models_dir)
 end
 
+if lfs.attributes(tracenn.progress_dir) == nil then
+  lfs.mkdir(tracenn.progress_dir)
+end
+
+
+
 -- get paths
 local file_idx = 1
-local predictions_save_path, model_save_path
+local predictions_save_path, model_save_path, progress_save_path
 while true do
   predictions_save_path = string.format(
     tracenn.predictions_dir .. 'rel-%s.%dl.%dd.%d.pred', args.model, args.layers, args.dim, file_idx)
@@ -240,6 +254,30 @@ end
 -- write models to disk
 print('writing model to ' .. model_save_path)
 best_dev_model:save(model_save_path)
+
+progress_save_path = tracenn.progress_dir .. sys.clock().. '.txt'
+io.output(progress_save_path)
+io.write('--------------------------\nModel Configuration:\n--------------------------\n')
+io.write(string.format('%-25s = %s\n',   'RNN structure', model.structure))
+io.write(string.format('%-25s = %d\n',   'word vector dim', model.emb_dim))
+io.write(string.format('%-25s = %.2e\n', 'regularization strength', model.reg))
+io.write(string.format('%-25s = %d\n',   'minibatch size', model.batch_size))
+io.write(string.format('%-25s = %.2e\n', 'learning rate', model.learning_rate))
+io.write(string.format('%-25s = %d\n',   'sim module hidden dim', model.sim_nhidden))
+if model.hidden_dim ~= nil and
+  model.num_layers~= nil and
+  model.grad_clip~= nil then
+  io.write(string.format('%-25s = %d\n',   'RNN hidden dim', model.hidden_dim))
+  io.write(string.format('%-25s = %d\n',   'RNN layers', model.num_layers))
+  io.write(string.format('%-25s = %d\n',   'Gradient clip', model.grad_clip))
+end
+io.write('--------------------------\nTraining Progress per epoch:\n--------------------------\n')
+io.write('training_loss,dev_loss,learning_rate\n')
+for i = 1, #learning_rate_progress do
+  io.write(train_loss_progress[1], ',')
+  io.write(dev_loss_progress[1], ',')
+  io.write(learning_rate_progress[1], '\n')
+end
 
 -- to load a saved model
 -- local loaded = model_class.load(model_save_path)
