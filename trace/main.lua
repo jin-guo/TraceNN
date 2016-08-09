@@ -22,7 +22,7 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -e,--epochs (default 10)         Number of training epochs
   -s,--s_dim  (default 20)          Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03) Learning Rate during Training NN Model
-  -b,--batch_size (default 10)      Batch Size of training data point for each update of parameters
+  -b,--batch_size (default 1)      Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 100)  Gradient clip threshold
   -t,--test_model (default false) test model on the testing data
 ]]

@@ -268,25 +268,25 @@ function Trace:RNN_backward(linputs, rinputs, rep_grad)
 end
 
 -- Bidirectional LSTM backward propagation
-function Trace:BiRNN_backward(lsent, rsent, linputs, rinputs, rep_grad)
+function Trace:BiRNN_backward(linputs, rinputs, rep_grad)
   local lgrad, lgrad_b, rgrad, rgrad_b
   if self.num_layers == 1 then
     lgrad   = torch.zeros(linputs:size(1), self.hidden_dim)
     lgrad_b = torch.zeros(linputs:size(1), self.hidden_dim)
-    rgrad   = torch.zeros(rsent:nElement(), self.hidden_dim)
-    rgrad_b = torch.zeros(rsent:nElement(), self.hidden_dim)
+    rgrad   = torch.zeros(rinputs:size(1), self.hidden_dim)
+    rgrad_b = torch.zeros(rinputs:size(1), self.hidden_dim)
     lgrad[linputs:size(1)] = rep_grad[1]
-    rgrad[rsent:nElement()] = rep_grad[3]
+    rgrad[rinputs:size(1)] = rep_grad[3]
     lgrad_b[1] = rep_grad[2]
     rgrad_b[1] = rep_grad[4]
   else
     lgrad   = torch.zeros(linputs:size(1), self.num_layers, self.hidden_dim)
     lgrad_b = torch.zeros(linputs:size(1), self.num_layers, self.hidden_dim)
-    rgrad   = torch.zeros(rsent:nElement(), self.num_layers, self.hidden_dim)
-    rgrad_b = torch.zeros(rsent:nElement(), self.num_layers, self.hidden_dim)
+    rgrad   = torch.zeros(rinputs:size(1), self.num_layers, self.hidden_dim)
+    rgrad_b = torch.zeros(rinputs:size(1), self.num_layers, self.hidden_dim)
     for l = 1, self.num_layers do
-      lgrad[{lsent:nElement(), l, {}}] = rep_grad[1][l]
-      rgrad[{rsent:nElement(), l, {}}] = rep_grad[3][l]
+      lgrad[{linputs:size(1), l, {}}] = rep_grad[1][l]
+      rgrad[{rinputs:size(1), l, {}}] = rep_grad[3][l]
       lgrad_b[{1, l, {}}] = rep_grad[2][l]
       rgrad_b[{1, l, {}}] = rep_grad[4][l]
     end
