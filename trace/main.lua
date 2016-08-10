@@ -16,10 +16,10 @@ end
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
+  -m,--model  (default averagevect)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 2)          	Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 20)         Number of training epochs
+  -e,--epochs (default 2)         Number of training epochs
   -s,--s_dim  (default 10)          Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03) Learning Rate during Training NN Model
   -b,--batch_size (default 1)      Batch Size of training data point for each update of parameters
@@ -195,7 +195,8 @@ for i = 1, num_epochs do
   train_loss_progress[i] = train_loss
   dev_loss_progress[i] = dev_loss
 end
-printf('finished training in %.2fs\n', sys.clock() - train_start)
+local training_time = sys.clock() - train_start
+printf('finished training in %.2fs\n', training_time)
 
 -- evaluate
 header('Evaluating on test set')
@@ -264,6 +265,7 @@ best_dev_model:save(model_save_path)
 
 progress_save_path = tracenn.progress_dir .. sys.clock().. '.txt'
 io.output(progress_save_path)
+io.write(string.format('Training Duration: %.2fs\n', training_time))
 io.write('--------------------------\nModel Configuration:\n--------------------------\n')
 io.write(string.format('%-25s = %s\n',   'RNN structure', model.structure))
 io.write(string.format('%-25s = %d\n',   'word vector dim', model.emb_dim))
