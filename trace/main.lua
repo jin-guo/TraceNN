@@ -28,6 +28,7 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -g,--reg  (default 1.00e-04)             Regulation lamda
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/') Output directory
   -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_glove') Name of the word embedding file
+  -p,--progress_output (default 'progress.txt') Name of the progress output file
 ]]
 
 local model_name, model_class
@@ -234,7 +235,7 @@ end
 
 -- get paths
 local file_idx = 1
-local predictions_save_path, model_save_path, progress_save_path
+local predictions_save_path, model_save_path
 while true do
   predictions_save_path = string.format(
     tracenn.predictions_dir .. 'rel-%s.%dl.%dd.%d.pred', args.model, args.layers, args.dim, file_idx)
@@ -273,7 +274,7 @@ end
 print('writing model to ' .. model_save_path)
 best_dev_model:save(model_save_path)
 
-progress_save_path = tracenn.progress_dir .. sys.clock().. '.txt'
+local progress_save_path = tracenn.progress_dir .. args.progress_output
 io.output(progress_save_path)
 io.write(string.format('Training Duration: %.2fs\n', training_time))
 io.write('--------------------------\nModel Configuration:\n--------------------------\n')

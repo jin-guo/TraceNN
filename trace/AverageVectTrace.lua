@@ -222,6 +222,8 @@ function AverageVectTrace:print_config()
   printf('%-25s = %d\n',   'minibatch size', self.batch_size)
   printf('%-25s = %.2e\n', 'learning rate', self.learning_rate)
   printf('%-25s = %d\n',   'sim module hidden dim', self.sim_nhidden)
+  printf('%-25s = %s\n',   'Model structure', self.structure)
+
 end
 
 --
