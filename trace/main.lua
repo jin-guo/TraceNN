@@ -17,15 +17,17 @@ end
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default averagevect)        Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 2)          	Number of layers (ignored for averagevect)
-  -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 2)         Number of training epochs
-  -s,--s_dim  (default 10)          Number of similairity module hidden dimension
-  -r,--learning_rate (default 1.00e-03) Learning Rate during Training NN Model
-  -b,--batch_size (default 1)      Batch Size of training data point for each update of parameters
-  -c,--grad_clip (default 100)  Gradient clip threshold
-  -t,--test_model (default false) test model on the testing data
-  -o,--reg  (default 1.00e-04) Regulation lamda
+  -l,--layers (default 2)           	     Number of layers (ignored for averagevect)
+  -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
+  -e,--epochs (default 2)                  Number of training epochs
+  -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
+  -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
+  -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
+  -c,--grad_clip (default 100)             Gradient clip threshold
+  -t,--test_model (default false)          test model on the testing data
+  -g,--reg  (default 1.00e-04)             Regulation lamda
+  -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/') Output directory
+  -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_glove') Name of the word embedding file
 ]]
 
 local model_name, model_class
@@ -54,6 +56,14 @@ end
 local model_structure = args.model
 header('Use Model: ' ..model_name .. ' for Tracing')
 
+-- Update global directories
+tracenn.output = args.output_dir
+tracenn.data_dir        = tracenn.output .. 'data/'
+tracenn.models_dir      = tracenn.output .. 'trained_models/'
+tracenn.predictions_dir = tracenn.output .. 'predictions/'
+tracenn.progress_dir = tracenn.output .. 'progress/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/symbol/'
+
 -- directory containing dataset files
 local data_dir = tracenn.data_dir ..'/trace_20_symbol/'
 local artifact_dir = tracenn.artifact_dir
@@ -66,7 +76,7 @@ local artifact = tracenn.read_artifact(artifact_dir, vocab)
 -- load embeddings
 print('Loading word embeddings')
 local emb_dir = tracenn.data_dir ..'wordembedding/'
-local emb_prefix = emb_dir .. 'ptc_symbol_50d_w10_i20_glove'
+local emb_prefix = emb_dir .. args.wordembedding_name
 local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
 local emb_dim
 for i, vec in ipairs(emb_vecs) do
