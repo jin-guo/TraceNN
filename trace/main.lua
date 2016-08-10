@@ -27,7 +27,7 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -t,--test_model (default false)          test model on the testing data
   -g,--reg  (default 1.00e-04)             Regulation lamda
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/') Output directory
-  -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_glove') Name of the word embedding file
+  -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_word2vec') Name of the word embedding file
   -p,--progress_output (default 'progress.txt') Name of the progress output file
 ]]
 

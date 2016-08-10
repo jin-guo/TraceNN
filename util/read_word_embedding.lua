@@ -1,9 +1,9 @@
 require('init')
 
 opt = {
-	binfilename = '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/data/wordembedding/glove_output/ptc_symbol_vector_glove_200d.txt',
-	outVecs = tracenn.data_dir .. '/wordembedding/ptc_symbol_200d_w10_i20_glove.vecs',
-  outVocab = tracenn.data_dir .. '/wordembedding/ptc_symbol_200d_w10_i20_glove.vocab'
+	binfilename = '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/data/wordembedding/word2vec_output/ptc_w10_50d_20iter_word2vec.txt',
+	outVecs = tracenn.data_dir .. '/wordembedding/ptc_symbol_50d_w10_i20_word2vec.vecs',
+  outVocab = tracenn.data_dir .. '/wordembedding/ptc_symbol_50d_w10_i20_word2vec.vocab'
 }
 
 -- Read the trace vocabulary.
@@ -11,7 +11,7 @@ local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'vocab_ptc_artifact_clean.tx
 print('Read trace vocabulary with word count:', vocab.size)
 
 --Reading the size
-local count = 1 -- 0 for word2vec output file
+local count = 0 -- 0 for word2vec output file, 1 for glove
 local dim = -1
 for line in io.lines(opt.binfilename) do
     if count == 1 then
@@ -30,7 +30,7 @@ local emb_vecs = {}
 local emb_vocab = {}
 --Reading Contents
 
-local i = 1 -- 0 for word2vec output file
+local i = 0 -- 0 for word2vec output file,  1 for glove 
 local contained_word_count = 0
 for line in io.lines(opt.binfilename) do
 	if(i > 0) then
