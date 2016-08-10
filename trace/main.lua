@@ -65,7 +65,7 @@ tracenn.progress_dir = tracenn.output .. 'progress/'
 tracenn.artifact_dir = tracenn.data_dir .. 'artifact/symbol/'
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'/trace_20_symbol/'
+local data_dir = tracenn.data_dir ..'trace_20_symbol/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
 local vocab = tracenn.Vocab(artifact_dir .. 'vocab_ptc_artifact_clean.txt')
