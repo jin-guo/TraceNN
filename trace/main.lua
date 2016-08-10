@@ -17,15 +17,15 @@ end
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 1)          	Number of layers (ignored for averagevect)
+  -l,--layers (default 2)          	Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
   -e,--epochs (default 20)         Number of training epochs
   -s,--s_dim  (default 10)          Number of similairity module hidden dimension
-  -r,--learning_rate (default 1.00e-02) Learning Rate during Training NN Model
+  -r,--learning_rate (default 1.00e-03) Learning Rate during Training NN Model
   -b,--batch_size (default 1)      Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 100)  Gradient clip threshold
   -t,--test_model (default false) test model on the testing data
-  -o,--reg  (default 1.00e-06) Regulation lamda
+  -o,--reg  (default 1.00e-04) Regulation lamda
 ]]
 
 local model_name, model_class
@@ -66,7 +66,7 @@ local artifact = tracenn.read_artifact(artifact_dir, vocab)
 -- load embeddings
 print('Loading word embeddings')
 local emb_dir = tracenn.data_dir ..'wordembedding/'
-local emb_prefix = emb_dir .. 'ptc_symbol_50d_w10_i10_vecs'
+local emb_prefix = emb_dir .. 'ptc_symbol_50d_w10_i20_glove'
 local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
 local emb_dim
 for i, vec in ipairs(emb_vecs) do
@@ -152,6 +152,7 @@ for i = 1, num_epochs do
   learning_rate_progress[i] = model.learning_rate
   local start = sys.clock()
   printf('-- epoch %d\n', i)
+  printf('-- current learning rate %.10f\n', model.learning_rate)
   local train_loss = model:train(train_dataset, artifact)
   printf('-- finished epoch in %.2fs\n', sys.clock() - start)
   printf('-- train loss: %.4f\n', train_loss)
@@ -182,9 +183,13 @@ for i = 1, num_epochs do
     best_dev_model.params:copy(model.params)
   end
 
-  if(train_loss > last_train_loss and model.learning_rate > 1e-8) then
-    model.learning_rate = model.learning_rate/2
-    print("Learning rate changed to:", model.learning_rate)
+  -- if(train_loss > last_train_loss and model.learning_rate > 1e-8) then
+  --   model.learning_rate = model.learning_rate/2
+  --   print("Learning rate changed to:", model.learning_rate)
+  -- end
+  if model.learning_rate > args.learning_rate/100 then
+    local alpha = i/100
+    model.learning_rate = (1-alpha)*args.learning_rate + alpha*args.learning_rate/100
   end
   last_train_loss = train_loss
   train_loss_progress[i] = train_loss
@@ -274,8 +279,9 @@ if model.hidden_dim ~= nil and
   io.write(string.format('%-25s = %d\n',   'Gradient clip', model.grad_clip))
 end
 io.write('--------------------------\nTraining Progress per epoch:\n--------------------------\n')
-io.write('training_loss,dev_loss,learning_rate\n')
+io.write('epoch, training_loss,dev_loss,learning_rate\n')
 for i = 1, #learning_rate_progress do
+  io.write(i, ',')
   io.write(train_loss_progress[i], ',')
   io.write(dev_loss_progress[i], ',')
   io.write(learning_rate_progress[i], '\n')
