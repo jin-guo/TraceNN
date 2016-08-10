@@ -16,15 +16,16 @@ end
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default averagevect)        Model architecture: [lstm, bilstm, averagevect]
+  -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 1)          	Number of layers (ignored for averagevect)
-  -d,--dim    (default 10)        	RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 1)         Number of training epochs
-  -s,--s_dim  (default 1)          Number of similairity module hidden dimension
-  -r,--learning_rate (default 1.00e-01) Learning Rate during Training NN Model
-  -b,--batch_size (default 20)      Batch Size of training data point for each update of parameters
-  -c,--grad_clip (default 15)  Gradient clip threshold
+  -d,--dim    (default 30)        	RNN hidden dimension (the same with LSTM memory dim)
+  -e,--epochs (default 20)         Number of training epochs
+  -s,--s_dim  (default 10)          Number of similairity module hidden dimension
+  -r,--learning_rate (default 1.00e-02) Learning Rate during Training NN Model
+  -b,--batch_size (default 1)      Batch Size of training data point for each update of parameters
+  -c,--grad_clip (default 100)  Gradient clip threshold
   -t,--test_model (default false) test model on the testing data
+  -o,--reg  (default 1.00e-06) Regulation lamda
 ]]
 
 local model_name, model_class
@@ -54,7 +55,7 @@ local model_structure = args.model
 header('Use Model: ' ..model_name .. ' for Tracing')
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'/trace_20/'
+local data_dir = tracenn.data_dir ..'/trace_20_symbol/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
 local vocab = tracenn.Vocab(artifact_dir .. 'vocab_ptc_artifact_clean.txt')
@@ -65,7 +66,7 @@ local artifact = tracenn.read_artifact(artifact_dir, vocab)
 -- load embeddings
 print('Loading word embeddings')
 local emb_dir = tracenn.data_dir ..'wordembedding/'
-local emb_prefix = emb_dir .. 'wiki_ptc_nosymbol_100d_w5_i5_vecs'
+local emb_prefix = emb_dir .. 'ptc_symbol_50d_w10_i10_vecs'
 local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
 local emb_dim
 for i, vec in ipairs(emb_vecs) do
@@ -125,6 +126,7 @@ local model = model_class{
   learning_rate = args.learning_rate,
   batch_size = args.batch_size,
   grad_clip = args.grad_clip,
+  reg = args.reg
 }
 
 -- Number of epochs to train
@@ -262,7 +264,7 @@ io.write(string.format('%-25s = %s\n',   'RNN structure', model.structure))
 io.write(string.format('%-25s = %d\n',   'word vector dim', model.emb_dim))
 io.write(string.format('%-25s = %.2e\n', 'regularization strength', model.reg))
 io.write(string.format('%-25s = %d\n',   'minibatch size', model.batch_size))
-io.write(string.format('%-25s = %.2e\n', 'learning rate', model.learning_rate))
+io.write(string.format('%-25s = %.2e\n', 'initial learning rate', args.learning_rate))
 io.write(string.format('%-25s = %d\n',   'sim module hidden dim', model.sim_nhidden))
 if model.hidden_dim ~= nil and
   model.num_layers~= nil and
@@ -274,9 +276,9 @@ end
 io.write('--------------------------\nTraining Progress per epoch:\n--------------------------\n')
 io.write('training_loss,dev_loss,learning_rate\n')
 for i = 1, #learning_rate_progress do
-  io.write(train_loss_progress[1], ',')
-  io.write(dev_loss_progress[1], ',')
-  io.write(learning_rate_progress[1], '\n')
+  io.write(train_loss_progress[i], ',')
+  io.write(dev_loss_progress[i], ',')
+  io.write(learning_rate_progress[i], '\n')
 end
 
 -- to load a saved model
