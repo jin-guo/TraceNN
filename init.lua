@@ -13,6 +13,7 @@ tracenn = {}
 include('util/read_data.lua')
 include('util/Vocab.lua')
 include('models/IdentityLinear.lua')
+include('models/LinearO.lua')
 include('models/LSTM.lua')
 include('models/GRU.lua')
 include('models/IRNN.lua')
@@ -28,7 +29,7 @@ tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'
 tracenn.progress_dir = tracenn.output .. 'progress/'
-tracenn.artifact_dir = tracenn.data_dir .. 'artifact/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/symbol/'
 
 -- share module parameters
 function share_params(cell, src)
