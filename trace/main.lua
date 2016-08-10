@@ -19,7 +19,7 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 2)           	     Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 100)                  Number of training epochs
+  -e,--epochs (default 20)                  Number of training epochs
   -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
@@ -161,45 +161,61 @@ local learning_rate_progress = {}
 header('Start Training model')
 
 -- Generate dataset for each epoch contains all link example and equal number of random non-link example
-local link_index = {}
-local nonlink_index = {}
-local dataset_each_epoch = {}
-dataset_each_epoch.vocab = train_dataset.vocab
-dataset_each_epoch.lsents = {}
-dataset_each_epoch.rsents = {}
-for i = 1, train_dataset.size do
-  if train_dataset.labels[i] == 2 then
-    link_index[#link_index + 1] = i
-    dataset_each_epoch.lsents[#dataset_each_epoch.lsents+1]
-      = train_dataset.lsents[i]
-    dataset_each_epoch.rsents[#dataset_each_epoch.rsents+1]
-      = train_dataset.rsents[i]
-  else
-    nonlink_index[#nonlink_index + 1] = i
+local  generate_balanced_dataset = function(dataset_to_balance)
+  local link_index = {}
+  local nonlink_index = {}
+  local dataset_each_epoch = {}
+  dataset_each_epoch.vocab = dataset_to_balance.vocab
+  dataset_each_epoch.lsents = {}
+  dataset_each_epoch.rsents = {}
+  for i = 1, dataset_to_balance.size do
+    if dataset_to_balance.labels[i] == 2 then
+      link_index[#link_index + 1] = i
+      dataset_each_epoch.lsents[#dataset_each_epoch.lsents+1]
+        = dataset_to_balance.lsents[i]
+      dataset_each_epoch.rsents[#dataset_each_epoch.rsents+1]
+        = dataset_to_balance.rsents[i]
+    else
+      nonlink_index[#nonlink_index + 1] = i
+    end
   end
+  dataset_each_epoch.size = 2*#link_index
+  dataset_each_epoch.labels = torch.ones(2*#link_index)
+  dataset_each_epoch.labels:narrow(1, 1, #link_index):fill(2)
+  return dataset_each_epoch, link_index, nonlink_index
 end
-dataset_each_epoch.size = 2*#link_index
-dataset_each_epoch.labels = torch.ones(2*#link_index)
-dataset_each_epoch.labels:narrow(1, 1, #link_index):fill(2)
 
+local training_dataset_each_epoch, training_link_index, training_nolink_index
+  = generate_balanced_dataset(train_dataset)
+local dev_dataset_each_epoch, dev_link_index, dev_nolink_index
+  = generate_balanced_dataset(dev_dataset)
 
 for i = 1, num_epochs do
 
   -- Random select non-link examples for this epoch
-  local nonlink_index_selected = torch.randperm(#nonlink_index)
-  for j = 1, #link_index do
+  local nonlink_index_selected = torch.randperm(#training_nolink_index)
+  for j = 1, #training_link_index do
     local index = nonlink_index_selected[j]
-    dataset_each_epoch.lsents[#link_index+j]
+    training_dataset_each_epoch.lsents[#training_link_index+j]
       = train_dataset.lsents[index]
-    dataset_each_epoch.rsents[#link_index+j]
+    training_dataset_each_epoch.rsents[#training_link_index+j]
       = train_dataset.rsents[index]
+  end
+
+  local dev_nonlink_index_selected = torch.randperm(#dev_nolink_index)
+  for j = 1, #dev_link_index do
+    local index = dev_nonlink_index_selected[j]
+    dev_dataset_each_epoch.lsents[#dev_link_index+j]
+      = dev_dataset.lsents[index]
+    dev_dataset_each_epoch.rsents[#dev_link_index+j]
+      = dev_dataset.rsents[index]
   end
 
   learning_rate_progress[i] = model.learning_rate
   local start = sys.clock()
   printf('-- epoch %d\n', i)
   printf('-- current learning rate %.10f\n', model.learning_rate)
-  local train_loss = model:train(dataset_each_epoch, artifact)
+  local train_loss = model:train(training_dataset_each_epoch, artifact)
   printf('-- finished epoch in %.2fs\n', sys.clock() - start)
   printf('-- train loss: %.4f\n', train_loss)
 
@@ -211,9 +227,9 @@ for i = 1, num_epochs do
   printf('-- train score: %.4f\n', train_score)
   --]]
 
-  local dev_loss = '/'
-  if i%5 == 0 then
-    dev_loss = model:predict_dataset(dev_dataset, artifact)
+  -- local dev_loss = '/'
+  -- if i%5 == 0 then
+    local dev_loss = model:predict_dataset(dev_dataset_each_epoch, artifact)
     printf('-- dev loss: %.4f\n', dev_loss)
 
     if dev_loss < best_dev_loss then
@@ -230,7 +246,7 @@ for i = 1, num_epochs do
       }
       best_dev_model.params:copy(model.params)
     end
-  end
+  -- end
   -- if(train_loss > last_train_loss and model.learning_rate > 1e-8) then
   --   model.learning_rate = model.learning_rate/2
   --   print("Learning rate changed to:", model.learning_rate)
