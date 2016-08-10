@@ -65,7 +65,7 @@ if __name__ == '__main__':
     print('=' * 80)
 
     artifact_dir = os.path.join('/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/data/artifact/symbol/')
-    trace_dir = os.path.join('/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/data/trace_20_symbol/')
+    trace_dir = os.path.join('/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/data/trace_all/')
     train_dir = os.path.join(trace_dir, 'train')
     dev_dir = os.path.join(trace_dir, 'dev')
     test_dir = os.path.join(trace_dir, 'test')
@@ -75,11 +75,11 @@ if __name__ == '__main__':
 
 
     # split into separate files
-    split(os.path.join(trace_dir, 'train_symbol_20.txt'), train_dir)
-    split(os.path.join(trace_dir, 'validation_symbol_20.txt'), dev_dir)
-    split(os.path.join(trace_dir, 'test_symbol_20.txt'), test_dir)
-    split_artifact(os.path.join(artifact_dir, 'SourceArtifact.txt'), source_dir)
-    split_artifact(os.path.join(artifact_dir, 'TargetArtifact.txt'), target_dir)
+    split(os.path.join(trace_dir, 'train_symbol_0.txt'), train_dir)
+    split(os.path.join(trace_dir, 'validation_symbol_0.txt'), dev_dir)
+    split(os.path.join(trace_dir, 'test_symbol_0.txt'), test_dir)
+    # split_artifact(os.path.join(artifact_dir, 'SourceArtifact.txt'), source_dir)
+    # split_artifact(os.path.join(artifact_dir, 'TargetArtifact.txt'), target_dir)
     # split(os.path.join(trace_dir, 'test_all_nosymbol.txt'), test_all_dir)
 
 

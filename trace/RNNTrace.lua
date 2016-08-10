@@ -29,7 +29,8 @@ function Trace:__init(config)
 
   -- Set Objective as minimize Negative Log Likelihood
   -- Remember to set the size_average to false to use the effect of weight!!
-  self.criterion = nn.ClassNLLCriterion(self.class_weight, false)
+  -- self.criterion = nn.ClassNLLCriterion(self.class_weight, false)
+  self.criterion = nn.ClassNLLCriterion()
 
   -- initialize RNN model
   local rnn_config = {

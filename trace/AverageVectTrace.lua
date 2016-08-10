@@ -20,14 +20,15 @@ function AverageVectTrace:__init(config)
 
   -- number of similarity rating classes
   self.num_classes = 2
-  self.class_weight = torch.Tensor({1, 500})
+  self.class_weight = torch.Tensor({1, 20})
 
   -- optimizer configuration
   self.optim_state = { learningRate = self.learning_rate }
 
   -- NLL optimization objective with weighted class
   -- Remember to set the size_average to false!!
-  self.criterion = nn.ClassNLLCriterion(self.class_weight, false)
+  -- self.criterion = nn.ClassNLLCriterion(self.class_weight, false)
+  self.criterion = nn.ClassNLLCriterion()
   if self.use_cuda then
     self.criterion = self.criterion:cuda()
   end
@@ -223,7 +224,6 @@ function AverageVectTrace:print_config()
   printf('%-25s = %.2e\n', 'learning rate', self.learning_rate)
   printf('%-25s = %d\n',   'sim module hidden dim', self.sim_nhidden)
   printf('%-25s = %s\n',   'Model structure', self.structure)
-
 end
 
 --

@@ -16,10 +16,10 @@ end
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default averagevect)        Model architecture: [lstm, bilstm, averagevect]
+  -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 2)           	     Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 2)                  Number of training epochs
+  -e,--epochs (default 100)                  Number of training epochs
   -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
@@ -55,7 +55,7 @@ elseif args.model == 'averagevect' then
   model_class = tracenn.AverageVectTrace
 end
 local model_structure = args.model
-header('Use Model: ' ..model_name .. ' for Tracing')
+header('Use Model: ' .. model_name .. ' for Tracing')
 
 -- Update global directories
 tracenn.output = args.output_dir
@@ -66,7 +66,7 @@ tracenn.progress_dir = tracenn.output .. 'progress/'
 tracenn.artifact_dir = tracenn.data_dir .. 'artifact/symbol/'
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'trace_20_symbol/'
+local data_dir = tracenn.data_dir ..'trace_all/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
 local vocab = tracenn.Vocab(artifact_dir .. 'vocab_ptc_artifact_clean.txt')
@@ -159,12 +159,47 @@ local dev_loss_progress = {}
 local learning_rate_progress = {}
 
 header('Start Training model')
+
+-- Generate dataset for each epoch contains all link example and equal number of random non-link example
+local link_index = {}
+local nonlink_index = {}
+local dataset_each_epoch = {}
+dataset_each_epoch.vocab = train_dataset.vocab
+dataset_each_epoch.lsents = {}
+dataset_each_epoch.rsents = {}
+for i = 1, train_dataset.size do
+  if train_dataset.labels[i] == 2 then
+    link_index[#link_index + 1] = i
+    dataset_each_epoch.lsents[#dataset_each_epoch.lsents+1]
+      = train_dataset.lsents[i]
+    dataset_each_epoch.rsents[#dataset_each_epoch.rsents+1]
+      = train_dataset.rsents[i]
+  else
+    nonlink_index[#nonlink_index + 1] = i
+  end
+end
+dataset_each_epoch.size = 2*#link_index
+dataset_each_epoch.labels = torch.ones(2*#link_index)
+dataset_each_epoch.labels:narrow(1, 1, #link_index):fill(2)
+
+
 for i = 1, num_epochs do
+
+  -- Random select non-link examples for this epoch
+  local nonlink_index_selected = torch.randperm(#nonlink_index)
+  for j = 1, #link_index do
+    local index = nonlink_index_selected[j]
+    dataset_each_epoch.lsents[#link_index+j]
+      = train_dataset.lsents[index]
+    dataset_each_epoch.rsents[#link_index+j]
+      = train_dataset.rsents[index]
+  end
+
   learning_rate_progress[i] = model.learning_rate
   local start = sys.clock()
   printf('-- epoch %d\n', i)
   printf('-- current learning rate %.10f\n', model.learning_rate)
-  local train_loss = model:train(train_dataset, artifact)
+  local train_loss = model:train(dataset_each_epoch, artifact)
   printf('-- finished epoch in %.2fs\n', sys.clock() - start)
   printf('-- train loss: %.4f\n', train_loss)
 
@@ -176,30 +211,32 @@ for i = 1, num_epochs do
   printf('-- train score: %.4f\n', train_score)
   --]]
 
-  local dev_loss = model:predict_dataset(dev_dataset, artifact)
-  printf('-- dev loss: %.4f\n', dev_loss)
+  local dev_loss = '/'
+  if i%5 == 0 then
+    dev_loss = model:predict_dataset(dev_dataset, artifact)
+    printf('-- dev loss: %.4f\n', dev_loss)
 
-  if dev_loss < best_dev_loss then
-    best_dev_loss = dev_loss
-    best_dev_model = model_class{
-      emb_vecs = vecs,
-      structure = model_structure,
-      num_layers = args.layers,
-      hidden_dim    = args.dim,
-      sim_nhidden = args.s_dim,
-      learning_rate = args.learning_rate,
-      batch_size = args.batch_size,
-      grad_clip = args.grad_clip,
-    }
-    best_dev_model.params:copy(model.params)
+    if dev_loss < best_dev_loss then
+      best_dev_loss = dev_loss
+      best_dev_model = model_class{
+        emb_vecs = vecs,
+        structure = model_structure,
+        num_layers = args.layers,
+        hidden_dim    = args.dim,
+        sim_nhidden = args.s_dim,
+        learning_rate = args.learning_rate,
+        batch_size = args.batch_size,
+        grad_clip = args.grad_clip,
+      }
+      best_dev_model.params:copy(model.params)
+    end
   end
-
   -- if(train_loss > last_train_loss and model.learning_rate > 1e-8) then
   --   model.learning_rate = model.learning_rate/2
   --   print("Learning rate changed to:", model.learning_rate)
   -- end
   if model.learning_rate > args.learning_rate/100 then
-    local alpha = i/100
+    local alpha = i/500
     model.learning_rate = (1-alpha)*args.learning_rate + alpha*args.learning_rate/100
   end
   last_train_loss = train_loss
