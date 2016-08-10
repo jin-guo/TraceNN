@@ -1,17 +1,17 @@
 require('init')
 
 opt = {
-	binfilename = tracenn.data_dir .. '/wordembedding/word2vec_output/wiki_ptc_nosymbol_100d_w5_i5_vecs.txt',
-	outVecs = tracenn.data_dir .. '/wordembedding/wiki_ptc_nosymbol_100d_w5_i5_vecs.vecs',
-  outVocab = tracenn.data_dir .. '/wordembedding/wiki_ptc_nosymbol_100d_w5_i5_vecs.vocab'
+	binfilename = '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/data/wordembedding/glove_output/ptc_symbol_vector_glove_200d.txt',
+	outVecs = tracenn.data_dir .. '/wordembedding/ptc_symbol_200d_w10_i20_glove.vecs',
+  outVocab = tracenn.data_dir .. '/wordembedding/ptc_symbol_200d_w10_i20_glove.vocab'
 }
 
 -- Read the trace vocabulary.
-local vocab = tracenn.Vocab(tracenn.data_dir .. '/trace_balanced/vocab_ptc_artifact_clean.txt')
-Print('Read trace vocabulary with word count:', vocab.size)
+local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'vocab_ptc_artifact_clean.txt')
+print('Read trace vocabulary with word count:', vocab.size)
 
 --Reading the size
-local count = 0
+local count = 1 -- 0 for word2vec output file
 local dim = -1
 for line in io.lines(opt.binfilename) do
     if count == 1 then
@@ -30,7 +30,7 @@ local emb_vecs = {}
 local emb_vocab = {}
 --Reading Contents
 
-local i = 0
+local i = 1 -- 0 for word2vec output file
 local contained_word_count = 0
 for line in io.lines(opt.binfilename) do
 	if(i > 0) then

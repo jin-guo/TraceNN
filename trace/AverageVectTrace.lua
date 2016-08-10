@@ -146,7 +146,7 @@ function AverageVectTrace:train(dataset, artifact)
 --    print('Check the gradients:', self.grad_params:size(1)*2)
 --    diff, dc, dc_est = optim.checkgrad(feval, self.params:clone())
 --    print('Diff must be close to 1e-8: diff = ' .. diff)
-    optim.sgd(feval, self.params, self.optim_state)
+    optim.rmsprop(feval, self.params, self.optim_state)
   end
   xlua.progress(dataset.size, dataset.size)
   train_loss = train_loss/dataset.size
