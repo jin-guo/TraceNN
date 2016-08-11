@@ -19,7 +19,7 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 2)           	     Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 100)                  Number of training epochs
+  -e,--epochs (default 1)                  Number of training epochs
   -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
@@ -289,20 +289,21 @@ end
 -- get paths
 local file_idx = 1
 local predictions_save_path, model_save_path
+
+-- Save model with the same progress file name
+model_save_path = tracenn.models_dir .. args.progress_output ..'.model'
+
 while true do
   predictions_save_path = string.format(
     tracenn.predictions_dir .. 'rel-%s.%dl.%dd.%d.pred', args.model, args.layers, args.dim, file_idx)
   -- model_save_path = string.format(
   --   tracenn.models_dir .. 'rel-%s.%dl.%dd.%d.th', args.model, args.layers, args.dim, file_idx)
   -- check if the files already exist in the folder.
-  if lfs.attributes(predictions_save_path) == nil and lfs.attributes(model_save_path) == nil then
+  if lfs.attributes(predictions_save_path) == nil then --and lfs.attributes(model_save_path) == nil then
     break
   end
   file_idx = file_idx + 1
 end
-
--- Save model with the same progress file name
-model_save_path = tracenn.models_dir .. progress_output ..'.model'
 if arg.test_model then
   -- write predictions to disk
   local predictions_file = torch.DiskFile(predictions_save_path, 'w')
