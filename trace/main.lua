@@ -19,16 +19,16 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 2)           	     Number of layers (ignored for averagevect)
   -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 20)                  Number of training epochs
+  -e,--epochs (default 100)                  Number of training epochs
   -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 100)             Gradient clip threshold
   -t,--test_model (default false)          test model on the testing data
-  -g,--reg  (default 1.00e-04)             Regulation lamda
+  -g,--reg  (default 1.00e-03)             Regulation lamda
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/') Output directory
   -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_word2vec') Name of the word embedding file
-  -p,--progress_output (default 'progress.txt') Name of the progress output file
+  -p,--progress_output (default 'progress') Name of the progress output file
 ]]
 
 local model_name, model_class
@@ -292,8 +292,8 @@ local predictions_save_path, model_save_path
 while true do
   predictions_save_path = string.format(
     tracenn.predictions_dir .. 'rel-%s.%dl.%dd.%d.pred', args.model, args.layers, args.dim, file_idx)
-  model_save_path = string.format(
-    tracenn.models_dir .. 'rel-%s.%dl.%dd.%d.th', args.model, args.layers, args.dim, file_idx)
+  -- model_save_path = string.format(
+  --   tracenn.models_dir .. 'rel-%s.%dl.%dd.%d.th', args.model, args.layers, args.dim, file_idx)
   -- check if the files already exist in the folder.
   if lfs.attributes(predictions_save_path) == nil and lfs.attributes(model_save_path) == nil then
     break
@@ -301,6 +301,8 @@ while true do
   file_idx = file_idx + 1
 end
 
+-- Save model with the same progress file name
+model_save_path = tracenn.models_dir .. progress_output ..'.model'
 if arg.test_model then
   -- write predictions to disk
   local predictions_file = torch.DiskFile(predictions_save_path, 'w')
@@ -327,7 +329,7 @@ end
 print('writing model to ' .. model_save_path)
 best_dev_model:save(model_save_path)
 
-local progress_save_path = tracenn.progress_dir .. args.progress_output
+local progress_save_path = tracenn.progress_dir .. args.progress_output .. '.txt'
 io.output(progress_save_path)
 io.write(string.format('Training Duration: %.2fs\n', training_time))
 io.write('--------------------------\nModel Configuration:\n--------------------------\n')
