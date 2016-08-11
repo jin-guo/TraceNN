@@ -37,7 +37,7 @@ function Trace:__init(config)
     in_dim = self.emb_dim,
     hidden_dim = self.hidden_dim,
     num_layers = self.num_layers,
-    gate_output = false, -- ignored by RNN models other than LSTM
+    gate_output = true, -- ignored by RNN models other than LSTM
   }
 
   if self.structure == 'lstm' then
