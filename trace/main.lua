@@ -17,17 +17,17 @@ end
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
   -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 2)           	     Number of layers (ignored for averagevect)
-  -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 1)                  Number of training epochs
-  -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
+  -l,--layers (default 1)           	     Number of layers (ignored for averagevect)
+  -d,--dim    (default 60)        	       RNN hidden dimension (the same with LSTM memory dim)
+  -e,--epochs (default 20)                  Number of training epochs
+  -s,--s_dim  (default 30)                 Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
-  -c,--grad_clip (default 100)             Gradient clip threshold
+  -c,--grad_clip (default 10)             Gradient clip threshold
   -t,--test_model (default false)          test model on the testing data
-  -g,--reg  (default 1.00e-03)             Regulation lamda
+  -g,--reg  (default 1.00e-04)             Regulation lamda
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/') Output directory
-  -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_word2vec') Name of the word embedding file
+  -w,--wordembedding_name (default 'wiki_ptc_symbol_300d_w10_i10_word2vec') Name of the word embedding file
   -p,--progress_output (default 'progress') Name of the progress output file
 ]]
 

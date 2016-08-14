@@ -11,7 +11,7 @@ local args = lapp [[
 ]]
 
 local model_dir = tracenn.models_dir .. '/'
-local model_file_name = 'rel-gru.2l.30d.2.th'
+local model_file_name = 'rel-gru.2l.30d.4.th'
 
 header('Test trained model:')
 if args.model ==  'averagevect' then
@@ -51,7 +51,7 @@ local file_idx = 1
 local predictions_save_path
 while true do
   predictions_save_path = string.format(
-    tracenn.predictions_dir .. '/' .. model_file_name ..'_OnTestData.pred')
+    tracenn.predictions_dir .. '/' .. model_file_name ..'_OnTestData_reg_e-03.pred')
   -- check if the files already exist in the folder.
   if lfs.attributes(predictions_save_path) == nil then
     break

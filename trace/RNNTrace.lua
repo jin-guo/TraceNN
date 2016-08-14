@@ -127,6 +127,7 @@ function Trace:new_sim_module()
    -- define similarity model architecture
   local sim_module = nn.Sequential()
     :add(vecs_to_input)
+    -- :add(nn.Dropout(0.5))
     :add(nn.Linear(input_dim, self.sim_nhidden))
     :add(nn.Sigmoid())    -- does better than tanh
     :add(nn.Linear(self.sim_nhidden, self.num_classes))
@@ -137,6 +138,7 @@ end
 function Trace:train(dataset, artifact)
   self.lrnn:training()
   self.rrnn:training()
+  self.sim_module:training()
   if string.starts(self.structure,'bi') then
     self.lrnn_b:training()
     self.rrnn_b:training()
@@ -311,6 +313,7 @@ end
 function Trace:predict(lsent, rsent, artifact)
   self.lrnn:evaluate()
   self.rrnn:evaluate()
+  self.sim_module:evaluate()
   local linputs, rinputs
   if artifact.src_artfs_ids[lsent]~= nil then
     linputs = artifact.src_artfs[artifact.src_artfs_ids[lsent]]
