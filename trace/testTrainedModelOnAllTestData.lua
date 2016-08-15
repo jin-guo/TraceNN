@@ -7,11 +7,11 @@
 require('..')
 
 local args = lapp [[
-  -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
+  -m,--model  (default bigru)        Model architecture: [lstm, bilstm, averagevect]
 ]]
 
-local model_dir = tracenn.models_dir .. '/'
-local model_file_name = 'rel-gru.2l.30d.4.th'
+local model_dir = tracenn.models_dir
+local model_file_name = '1470992031.4712.model'
 
 header('Test trained model:')
 if args.model ==  'averagevect' then
@@ -31,12 +31,12 @@ local artifact = tracenn.read_artifact(artifact_dir, vocab)
 -- Map artifact to word embeddings
 for i = 1, #artifact.src_artfs do
   local src_artf = artifact.src_artfs[i]
-  artifact.src_artfs[i] = model.emb_vecs:index(1, src_artf:long())
+  artifact.src_artfs[i] = vecs:index(1, src_artf:long())
 end
 
 for i = 1, #artifact.trg_artfs do
-  local src_artf = artifact.trg_artfs[i]
-  artifact.trg_artfs[i] = model.emb_vecs:index(1, src_artf:long())
+  local trg_artf = artifact.trg_artfs[i]
+  artifact.trg_artfs[i] = vecs:index(1, trg_artf:long())
 end
 
 local test_dir = data_dir .. 'test/'
@@ -51,7 +51,7 @@ local file_idx = 1
 local predictions_save_path
 while true do
   predictions_save_path = string.format(
-    tracenn.predictions_dir .. '/' .. model_file_name ..'_OnTestData_reg_e-03.pred')
+    tracenn.predictions_dir .. '/' .. model_file_name ..'_OnTestData_1470992031.4712.pred')
   -- check if the files already exist in the folder.
   if lfs.attributes(predictions_save_path) == nil then
     break

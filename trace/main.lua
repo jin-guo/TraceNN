@@ -16,11 +16,11 @@ end
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default gru)        Model architecture: [lstm, bilstm, averagevect]
+  -m,--model  (default averagevect)        Model architecture: [lstm, bilstm, averagevect]
   -l,--layers (default 1)           	     Number of layers (ignored for averagevect)
   -d,--dim    (default 60)        	       RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 20)                  Number of training epochs
-  -s,--s_dim  (default 30)                 Number of similairity module hidden dimension
+  -e,--epochs (default 50)                  Number of training epochs
+  -s,--s_dim  (default 20)                 Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 10)             Gradient clip threshold
@@ -111,8 +111,8 @@ for i = 1, #artifact.src_artfs do
 end
 
 for i = 1, #artifact.trg_artfs do
-  local src_artf = artifact.trg_artfs[i]
-  artifact.trg_artfs[i] = vecs:index(1, src_artf:long())
+  local trg_artf = artifact.trg_artfs[i]
+  artifact.trg_artfs[i] = vecs:index(1, trg_artf:long())
 end
 
 -- load datasets
@@ -152,6 +152,7 @@ model:print_config()
 local train_start = sys.clock()
 local best_dev_loss = 100000000
 local last_train_loss = 100000000
+local first_train_loss
 local best_dev_model = model
 -- Save the progress result to tables
 local train_loss_progress = {}
@@ -258,6 +259,15 @@ for i = 1, num_epochs do
   last_train_loss = train_loss
   train_loss_progress[i] = train_loss
   dev_loss_progress[i] = dev_loss
+  if i == 1 then
+    first_train_loss = train_loss
+  end
+  -- if the loss does not decrease to 80% by epoch 10, stop training
+  if i == 10 then
+    if train_loss > 0.8*first_train_loss then
+      break
+    end
+  end
 end
 local training_time = sys.clock() - train_start
 printf('finished training in %.2fs\n', training_time)
