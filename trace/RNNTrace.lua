@@ -369,18 +369,35 @@ function Trace:predict_dataset(dataset, artifact)
   return loss, predictions
 end
 
-function Trace:compute_loss_dataset(dataset, artifact)
-  local targets = dataset.labels
-  local loss = 0
-  for i = 1, dataset.size do
-    xlua.progress(i, dataset.size)
-    local lsent, rsent = dataset.lsents[i], dataset.rsents[i]
-    local output = self:predict(lsent, rsent, artifact)
-    local example_loss = self.criterion:forward(output, targets[i])
-    loss = loss + example_loss
+function Trace:predict_text(lsent, rsent)
+  self.lrnn:evaluate()
+  self.rrnn:evaluate()
+  self.sim_module:evaluate()
+  local linputs, rinputs
+  linputs = self.emb_vecs:index(1, lsent:long())
+  rinputs = self.emb_vecs:index(1, rsent:long())
+
+  local inputs
+  if not  string.starts(self.structure,'bi') then
+    inputs = {self.lrnn:forward(linputs), self.rrnn:forward(rinputs)}
+  elseif  string.starts(self.structure,'bi') then
+    self.lrnn_b:evaluate()
+    self.rrnn_b:evaluate()
+    inputs = {
+      self.lrnn:forward(linputs),
+      self.lrnn_b:forward(linputs, true),
+      self.rrnn:forward(rinputs),
+      self.rrnn_b:forward(rinputs, true)
+    }
   end
-  loss = loss/dataset.size
-  return loss
+  local output = self.sim_module:forward(inputs)
+  self.lrnn:forget()
+  self.rrnn:forget()
+  if  string.starts(self.structure,'bi') then
+    self.lrnn_b:forget()
+    self.rrnn_b:forget()
+  end
+  return output
 end
 
 function Trace:print_config()
