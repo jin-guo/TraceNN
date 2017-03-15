@@ -14,6 +14,5 @@ The implementation of the Tracing Network described in the paper
 
 ## Acknowledgement
 The implementation of Tracing Network is based on the Semantic Relatedness architecture described in the paper [Improved Semantic Representations From Tree-Structured Long Short-Term Memory
-Networks](http://arxiv.org/abs/1503.00075) by Kai Sheng Tai, Richard Socher, and 
-Christopher Manning and the implemented [here] (https://github.com/stanfordnlp/treelstm).
+Networks](http://arxiv.org/abs/1503.00075) and the implemented [here](https://github.com/stanfordnlp/treelstm).
 
