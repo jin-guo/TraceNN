@@ -5,6 +5,8 @@ require('optim')
 require('xlua')
 require('sys')
 require('lfs')
+require ('sentenceembedding')
+
 -- require('cutorch')
 -- require('cunn')
 
@@ -13,13 +15,15 @@ tracenn = {}
 include('util/read_data.lua')
 include('util/Vocab.lua')
 include('models/IdentityLinear.lua')
-include('models/LinearO.lua')
+-- include('models/LinearO.lua')
 include('models/LinearWithBias.lua')
 include('models/LSTM.lua')
 include('models/GRU.lua')
 include('models/IRNN.lua')
 include('trace/RNNTrace.lua')
 include('trace/AverageVectTrace.lua')
+include('trace/RNNTrace_with_Input_Layer.lua')
+
 
 
 printf = utils.printf
@@ -30,7 +34,7 @@ tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'
 tracenn.progress_dir = tracenn.output .. 'progress/'
-tracenn.artifact_dir = tracenn.data_dir .. 'artifact/symbol/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/no_underscore/'
 
 -- share module parameters
 function share_params(cell, src)

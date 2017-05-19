@@ -1,10 +1,11 @@
 --[[
 
-  Training Script for Trace Software Artifacts.
+  Training script for semantic relatedness prediction on the SICK dataset.
 
 --]]
 
 require('..')
+
 
 -- Pearson correlation
 function pearson(x, y)
@@ -16,46 +17,20 @@ end
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default bigru)              Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 1)           	     Number of layers (ignored for averagevect)
-  -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
-  -e,--epochs (default 40)                 Number of training epochs
-  -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
+  -e,--epochs (default 10)                 Number of training epochs
+  -s,--s_dim  (default 50)                 Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-02)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 10)              Gradient clip threshold
   -t,--test_model (default false)          test model on the testing data
-  -g,--reg  (default 1.00e-04)             Regulation lamda
+  -g,--reg  (default 0)                     Regulation lamda
+  --model_name     (default contextencoder) Pretrained Model Type
+  --domain_name    (default ehr)           Domain name
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/') Output directory
-  -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_word2vec') Name of the word embedding file
-  -p,--progress_output (default 'progress_additional_9_change_best_test') Name of the progress output file
+  -w,--wordembedding_name (default 'ptc_w10_50d_20iter_new') Name of the word embedding file
+  -p,--progress_output (default 'progress_skipthough_pretrained.txt') Name of the progress output file
 ]]
 
-local model_name, model_class
-if args.model == 'lstm' then
-  model_name = 'LSTM'
-  model_class = tracenn.RNNTrace
-elseif args.model == 'bilstm' then
-  model_name = 'Bidirectional LSTM'
-  model_class = tracenn.RNNTrace
-elseif args.model == 'irnn' then
-  model_name = 'IRNN'
-  model_class = tracenn.RNNTrace
-elseif args.model == 'biirnn' then
-  model_name = 'Bidirectional IRNN'
-  model_class = tracenn.RNNTrace
-elseif args.model == 'gru' then
-  model_name = 'GRU'
-  model_class = tracenn.RNNTrace
-elseif args.model == 'bigru' then
-  model_name = 'Bidirectional GRU'
-  model_class = tracenn.RNNTrace
-elseif args.model == 'averagevect' then
-  model_name = 'Average Vector'
-  model_class = tracenn.AverageVectTrace
-end
-local model_structure = args.model
-header('Use Model: ' .. model_name .. ' for Tracing')
 
 -- Update global directories
 tracenn.output = args.output_dir
@@ -63,57 +38,58 @@ tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'
 tracenn.progress_dir = tracenn.output .. 'progress/'
-tracenn.artifact_dir = tracenn.data_dir .. 'artifact/symbol/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/EHR/'
+
+local domain_name
+if args.domain_name:lower() == 'ptc' then
+  domain_name = 'PTC'
+elseif args.domain_name:lower() == 'ehr' then
+  domain_name = 'EHR'
+else
+  print('Unsupported Domain!')
+  goto done
+end
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'trace_80_10_10_increase_from_45_additional_9/'
-local artifact_dir = tracenn.artifact_dir
+local data_dir = tracenn.data_dir ..'trace_80_10_10_EHR/'
+local vocab_dir = '/Users/Jinguo/Dropbox/TraceNN_experiment/skipthoughts/data/' .. domain_name .. '/'
 -- load artifact vocab
-local vocab = tracenn.Vocab(artifact_dir .. 'vocab_ptc_artifact_clean.txt')
+local vocab = tracenn.Vocab(vocab_dir .. 'Vocab.txt')
 -- load all artifact
-local artifact = tracenn.read_artifact(artifact_dir, vocab)
+local artifact = tracenn.read_artifact(tracenn.artifact_dir, vocab)
 
-
--- load embeddings
-print('Loading word embeddings')
-local emb_dir = tracenn.data_dir ..'wordembedding/'
-local emb_prefix = emb_dir .. args.wordembedding_name
-local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
-local emb_dim
-for i, vec in ipairs(emb_vecs) do
-  emb_dim = vec:size(1)
-  break
+local trained_model_dir = '/Users/Jinguo/Dropbox/TraceNN_experiment/skipthoughts/model/'
+local trained_model_file_name = 'EHR_contextencoder_ed_50_e_30_update_embedding.model'
+local trained_model
+if args.model_name:lower() == 'contextencoder' then
+  trained_model = sentenceembedding.ContextEncoder.load(trained_model_dir .. trained_model_file_name)
+elseif args.model_name:lower() == 'autoencoder' then
+  trained_model = sentenceembedding.AutoEncoder.load(trained_model_dir .. trained_model_file_name)
+elseif args.model_name:lower() == 'skipthought' then
+  trained_model = sentenceembedding.SkipThought.load(trained_model_dir .. trained_model_file_name)
+else
+  print('Unsupported Model!')
+  goto done
 end
-print('Embedding dim:', emb_dim)
 
--- use only vectors in vocabulary (not necessary, but gives faster training)
-local num_unk = 0
-local vecs = torch.Tensor(vocab.size, emb_dim)
-for i = 1, vocab.size do
-  local w = vocab:token(i)
-  if emb_vocab:contains(w) then
-    vecs[i] = emb_vecs[emb_vocab:index(w)]
-  else
-    print(w)
-    num_unk = num_unk + 1
-    vecs[i]:uniform(-0.05, 0.05)
-  end
+local emb_vecs = torch.Tensor(trained_model.emb_vecs:size(1), trained_model.emb_vecs:size(2))
+if trained_model.update_word_embedding == 1 then
+  print(trained_model.input_module:get(1))
+  emb_vecs:copy(trained_model.input_module:get(1).weight)
+else
+  emb_vecs:copy(trained_model.emb_vecs)
 end
-print('unk count = ' .. num_unk)
-emb_vocab = nil
-emb_vecs = nil
-collectgarbage()
 
 -- Map artifact to word embeddings
-for i = 1, #artifact.src_artfs do
-  local src_artf = artifact.src_artfs[i]
-  artifact.src_artfs[i] = vecs:index(1, src_artf:long())
-end
-
-for i = 1, #artifact.trg_artfs do
-  local trg_artf = artifact.trg_artfs[i]
-  artifact.trg_artfs[i] = vecs:index(1, trg_artf:long())
-end
+-- for i = 1, #artifact.src_artfs do
+--   local src_artf = artifact.src_artfs[i]
+--   artifact.src_artfs[i] = emb_vecs:index(1, src_artf:long())
+-- end
+--
+-- for i = 1, #artifact.trg_artfs do
+--   local trg_artf = artifact.trg_artfs[i]
+--   artifact.trg_artfs[i] = emb_vecs:index(1, trg_artf:long())
+-- end
 
 -- load datasets
 print('loading datasets')
@@ -127,18 +103,58 @@ printf('num train = %d\n', train_dataset.size)
 printf('num dev   = %d\n', dev_dataset.size)
 printf('num test  = %d\n', test_dataset.size)
 
+-- local skip_thought_model_dir = '/Users/Jinguo/Dropbox/TraceNN_experiment/skipthoughts/model/'
+-- local skip_thought_model_file_name = 'testing_model_ptc.model'
+
+header('Test trained model:')
+
+-- local skip_thought_model = sentenceembedding.SkipThought.load(skip_thought_model_dir .. skip_thought_model_file_name)
+
+local model_name, model_class, model_structure
+if trained_model.encoder.structure == 'gru' then
+  model_name = 'GRU'
+  model_class = tracenn.RNNTrace
+  model_structure = 'gru'
+elseif trained_model.encoder.structure == 'bigru' then
+  model_name = 'Bidirectional GRU'
+  model_class = tracenn.RNNTrace
+  model_structure = 'bigru'
+end
+header('Use Model: ' .. model_name .. ' for Tracing')
+
+local rnn_in_dim = trained_model.encoder.emb_dim
+local rnn_hidden_dim = trained_model.encoder.hidden_dim
+local rnn_num_layers = trained_model.encoder.num_layers
+if rnn_in_dim ~= trained_model.emb_vecs:size(2) then
+  print('RNN input dimensions do not match')
+end
+
 -- Initialize model
 local model = model_class{
-  emb_vecs   = vecs,
+  emb_vecs   = emb_vecs,
   structure  = model_structure,
-  num_layers = args.layers,
-  hidden_dim  = args.dim,
+  num_layers = rnn_num_layers,
+  hidden_dim  = rnn_hidden_dim,
   sim_nhidden = args.s_dim,
   learning_rate = args.learning_rate,
   batch_size = args.batch_size,
   grad_clip = args.grad_clip,
   reg = args.reg
 }
+
+-- Load the parameters of RNN from pre-trained RNN model
+-- if trained_model.encoder.structure == 'gru' then
+--   local rnn_params = model.lrnn:getParameters()
+--   local trained_rnn_params = trained_model.encoder.rnn:getParameters()
+--   rnn_params:copy(trained_rnn_params)
+-- elseif trained_model.encoder.structure == 'bigru' then
+--   local rnn_params = model.lrnn:getParameters()
+--   local trained_rnn_params = trained_model.encoder.rnn:getParameters()
+--   rnn_params:copy(trained_rnn_params)
+--   local rnn_b_params = model.lrnn_b:getParameters()
+--   local trained_rnn_b_params = trained_model.encoder.rnn_b:getParameters()
+--   rnn_b_params:copy(trained_rnn_b_params)
+-- end
 
 -- Number of epochs to train
 local num_epochs = args.epochs
@@ -238,10 +254,10 @@ for i = 1, num_epochs do
       best_dev_loss = to_compare -- using the max value of training loss and dev loss to select best model
       printf('saving model for best loss in %.2fs\n', best_dev_loss)
       best_dev_model = model_class{
-        emb_vecs = vecs,
+        emb_vecs = emb_vecs,
         structure = model_structure,
-        num_layers = args.layers,
-        hidden_dim    = args.dim,
+        num_layers = rnn_num_layers,
+        hidden_dim  = rnn_hidden_dim,
         sim_nhidden = args.s_dim,
         learning_rate = args.learning_rate,
         batch_size = args.batch_size,
@@ -277,7 +293,7 @@ printf('finished training in %.2fs\n', training_time)
 -- evaluate
 header('Evaluating on test set')
 printf('-- using model with dev score = %.4f\n', best_dev_loss)
-if args.test_model then
+if arg.test_model then
   local test_loss, test_predictions = best_dev_model:predict_dataset(test_dataset, artifact)
   printf('-- test loss: %.4f\n', test_loss)
 
@@ -307,7 +323,7 @@ model_save_path = tracenn.models_dir .. args.progress_output ..'.model'
 
 while true do
   predictions_save_path = string.format(
-    tracenn.predictions_dir .. 'rel-%s.%dl.%dd.%d.pred', args.model, args.layers, args.dim, file_idx)
+    tracenn.predictions_dir .. 'rel-%s.%dl.%dd.%d.pred', model_structure, rnn_num_layers, rnn_hidden_dim, file_idx)
   -- model_save_path = string.format(
   --   tracenn.models_dir .. 'rel-%s.%dl.%dd.%d.th', args.model, args.layers, args.dim, file_idx)
   -- check if the files already exist in the folder.
@@ -322,16 +338,9 @@ if arg.test_model then
   predictions_file:noAutoSpacing()
   print('writing predictions to ' .. predictions_save_path)
   for i = 1, #test_predictions do
-    if args.model == 'averagevect' then
-      for j = 1, test_predictions[i]:size(2) do
-        predictions_file:writeDouble(test_predictions[i][1][j])
-        predictions_file:writeString(',')
-      end
-    else
-      for j = 1, test_predictions[i]:size(1) do
-        predictions_file:writeDouble(test_predictions[i][j])
-        predictions_file:writeString(',')
-      end
+    for j = 1, test_predictions[i]:size(1) do
+      predictions_file:writeDouble(test_predictions[i][j])
+      predictions_file:writeString(',')
     end
     predictions_file:writeString('\n')
   end
@@ -368,5 +377,6 @@ for i = 1, #learning_rate_progress do
   io.write(learning_rate_progress[i], '\n')
 end
 
+::done::
 -- to load a saved model
 -- local loaded = model_class.load(model_save_path)

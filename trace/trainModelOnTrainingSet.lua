@@ -28,7 +28,7 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -g,--reg  (default 1.00e-04)             Regulation lamda
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/') Output directory
   -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_word2vec') Name of the word embedding file
-  -p,--progress_output (default 'progress_additional_9_change_best_test') Name of the progress output file
+  -p,--progress_output (default 'trainingDataOnly_2') Name of the progress output file
 ]]
 
 local model_name, model_class
@@ -66,7 +66,7 @@ tracenn.progress_dir = tracenn.output .. 'progress/'
 tracenn.artifact_dir = tracenn.data_dir .. 'artifact/symbol/'
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'trace_80_10_10_increase_from_45_additional_9/'
+local data_dir = tracenn.data_dir ..'trace_All_For_Training/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
 local vocab = tracenn.Vocab(artifact_dir .. 'vocab_ptc_artifact_clean.txt')
@@ -118,14 +118,9 @@ end
 -- load datasets
 print('loading datasets')
 local train_dir = data_dir .. 'train/'
-local dev_dir = data_dir .. 'dev/'
-local test_dir = data_dir .. 'test/'
 local train_dataset = tracenn.read_trace_dataset(train_dir, vocab)
-local dev_dataset = tracenn.read_trace_dataset(dev_dir, vocab)
-local test_dataset = tracenn.read_trace_dataset(test_dir, vocab)
 printf('num train = %d\n', train_dataset.size)
-printf('num dev   = %d\n', dev_dataset.size)
-printf('num test  = %d\n', test_dataset.size)
+
 
 -- Initialize model
 local model = model_class{
@@ -150,10 +145,10 @@ model:print_config()
 
 -- train
 local train_start = sys.clock()
-local best_dev_loss = 100000000
+local best_train_loss = 100000000
 local last_train_loss = 100000000
 local first_train_loss
-local best_dev_model = model
+local best_train_model = model
 -- Save the progress result to tables
 local train_loss_progress = {}
 local dev_loss_progress = {}
@@ -188,8 +183,6 @@ end
 
 local training_dataset_each_epoch, training_link_index, training_nolink_index
   = generate_balanced_dataset(train_dataset)
-local dev_dataset_each_epoch, dev_link_index, dev_nolink_index
-  = generate_balanced_dataset(dev_dataset)
 
 for i = 1, num_epochs do
 
@@ -201,15 +194,6 @@ for i = 1, num_epochs do
       = train_dataset.lsents[index]
     training_dataset_each_epoch.rsents[#training_link_index+j]
       = train_dataset.rsents[index]
-  end
-
-  local dev_nonlink_index_selected = torch.randperm(#dev_nolink_index)
-  for j = 1, #dev_link_index do
-    local index = dev_nonlink_index_selected[j]
-    dev_dataset_each_epoch.lsents[#dev_link_index+j]
-      = dev_dataset.lsents[index]
-    dev_dataset_each_epoch.rsents[#dev_link_index+j]
-      = dev_dataset.rsents[index]
   end
 
   learning_rate_progress[i] = model.learning_rate
@@ -230,14 +214,11 @@ for i = 1, num_epochs do
 
   -- local dev_loss = '/'
   -- if i%5 == 0 then
-    local dev_loss = model:predict_dataset(dev_dataset_each_epoch, artifact)
-    printf('-- dev loss: %.4f\n', dev_loss)
 
-    local to_compare = math.max(train_loss, dev_loss)
-    if to_compare < best_dev_loss then
-      best_dev_loss = to_compare -- using the max value of training loss and dev loss to select best model
-      printf('saving model for best loss in %.2fs\n', best_dev_loss)
-      best_dev_model = model_class{
+    if train_loss < best_train_loss then
+      best_train_loss = train_loss -- using the max value of training loss and dev loss to select best model
+      printf('saving model for best loss in %.2fs\n', best_train_loss)
+      best_train_model = model_class{
         emb_vecs = vecs,
         structure = model_structure,
         num_layers = args.layers,
@@ -247,7 +228,7 @@ for i = 1, num_epochs do
         batch_size = args.batch_size,
         grad_clip = args.grad_clip,
       }
-      best_dev_model.params:copy(model.params)
+      best_train_model.params:copy(model.params)
     end
   -- end
   -- if(train_loss > last_train_loss and model.learning_rate > 1e-8) then
@@ -260,7 +241,6 @@ for i = 1, num_epochs do
   end
   last_train_loss = train_loss
   train_loss_progress[i] = train_loss
-  dev_loss_progress[i] = dev_loss
   if i == 1 then
     first_train_loss = train_loss
   end
@@ -273,19 +253,6 @@ for i = 1, num_epochs do
 end
 local training_time = sys.clock() - train_start
 printf('finished training in %.2fs\n', training_time)
-
--- evaluate
-header('Evaluating on test set')
-printf('-- using model with dev score = %.4f\n', best_dev_loss)
-if args.test_model then
-  local test_loss, test_predictions = best_dev_model:predict_dataset(test_dataset, artifact)
-  printf('-- test loss: %.4f\n', test_loss)
-
-  -- create predictions directories if necessary
-  if lfs.attributes(tracenn.predictions_dir) == nil then
-    lfs.mkdir(tracenn.predictions_dir)
-  end
-end
 
 -- create model directories if necessary
 if lfs.attributes(tracenn.models_dir) == nil then
@@ -340,7 +307,7 @@ end
 
 -- write models to disk
 print('writing model to ' .. model_save_path)
-best_dev_model:save(model_save_path)
+best_train_model:save(model_save_path)
 
 local progress_save_path = tracenn.progress_dir .. args.progress_output .. '.txt'
 io.output(progress_save_path)
@@ -364,7 +331,6 @@ io.write('epoch, training_loss,dev_loss,learning_rate\n')
 for i = 1, #learning_rate_progress do
   io.write(i, ',')
   io.write(train_loss_progress[i], ',')
-  io.write(dev_loss_progress[i], ',')
   io.write(learning_rate_progress[i], '\n')
 end
 

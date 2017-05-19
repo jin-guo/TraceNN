@@ -18,10 +18,22 @@ function tracenn.read_sentences(path, vocab)
     if line == nil then break end
     local tokens = stringx.split(line)
     local len = #tokens
-    local sent = torch.IntTensor(len)
+    local count = 0
+    for i = 1, len do
+      if vocab:contains(tokens[i]) then
+        count = count + 1
+      end
+    end
+    local sent = torch.IntTensor(count)
+    count = 1
     for i = 1, len do
       local token = tokens[i]
-      sent[i] = vocab:index(token)
+      if vocab:contains(token) then
+        sent[count] = vocab:index(token)
+        count = count + 1
+      else
+        print(token .. ' not found in vocab. Omit for now.')
+      end
     end
     sentences[#sentences + 1] = sent
   end

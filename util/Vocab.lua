@@ -15,6 +15,7 @@ function Vocab:__init(path)
   self._tokens = {}
 
   local file = io.open(path)
+  print(path)
   while true do
     local line = file:read()
     if line == nil then break end

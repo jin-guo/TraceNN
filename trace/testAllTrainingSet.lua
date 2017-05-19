@@ -11,7 +11,7 @@ local args = lapp [[
 ]]
 
 local model_dir = tracenn.models_dir
-local model_file_name = 'progress_additional_9_change_best.model'
+local model_file_name = 'trainingDataOnly_1.model'
 
 header('Test trained model:')
 if args.model ==  'averagevect' then
@@ -21,7 +21,7 @@ else
 end
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'/trace_80_10_10_increase_from_45_additional_9/'
+local data_dir = tracenn.data_dir ..'/trace_All_For_Training/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
 local vocab = tracenn.Vocab(artifact_dir .. 'vocab_ptc_artifact_clean.txt')
@@ -39,19 +39,19 @@ for i = 1, #artifact.trg_artfs do
   artifact.trg_artfs[i] = model.emb_vecs:index(1, trg_artf:long())
 end
 
-local test_dir = data_dir .. 'test/'
-header('Reading all test data')
-local test_dataset = tracenn.read_trace_dataset(test_dir, vocab)
-header('Evaluating on test data')
-local test_loss, test_predictions = model:predict_dataset(test_dataset, artifact)
+local training_dir = data_dir .. 'train/'
+header('Reading all training data')
+local train_dataset = tracenn.read_trace_dataset(training_dir, vocab)
+header('Evaluating on all training data')
+local train_loss, train_predictions = model:predict_dataset(train_dataset, artifact)
 
-print('Done with Test loss:', test_loss)
+print('Done with Train loss:', train_loss)
 
 local file_idx = 1
 local predictions_save_path
 while true do
   predictions_save_path = string.format(
-    tracenn.predictions_dir .. '/' .. model_file_name ..'_retrained_additional_9_change_best')
+    tracenn.predictions_dir .. '/' .. model_file_name ..'.pred')
   -- check if the files already exist in the folder.
   if lfs.attributes(predictions_save_path) == nil then
     break
@@ -63,15 +63,15 @@ end
 local predictions_file = torch.DiskFile(predictions_save_path, 'w')
 predictions_file:noAutoSpacing()
 print('writing predictions to ' .. predictions_save_path)
-for i = 1, #test_predictions do
+for i = 1, #train_predictions do
   if args.model == 'averagevect' then
-    for j = 1, test_predictions[i]:size(2) do
-      predictions_file:writeDouble(test_predictions[i][1][j])
+    for j = 1, train_predictions[i]:size(2) do
+      predictions_file:writeDouble(train_predictions[i][1][j])
       predictions_file:writeString(',')
     end
   else
-    for j = 1, test_predictions[i]:size(1) do
-      predictions_file:writeDouble(test_predictions[i][j])
+    for j = 1, train_predictions[i]:size(1) do
+      predictions_file:writeDouble(train_predictions[i][j])
       predictions_file:writeString(',')
     end
   end

@@ -21,35 +21,36 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
   -e,--epochs (default 40)                 Number of training epochs
   -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
-  -r,--learning_rate (default 1.00e-02)    Learning Rate during Training NN Model
+  -r,--learning_rate (default 5.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
-  -c,--grad_clip (default 10)              Gradient clip threshold
+  -c,--grad_clip (default 1)              Gradient clip threshold
   -t,--test_model (default false)          test model on the testing data
   -g,--reg  (default 1.00e-04)             Regulation lamda
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tracenn/') Output directory
-  -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_word2vec') Name of the word embedding file
-  -p,--progress_output (default 'progress_additional_9_change_best_test') Name of the progress output file
+  -w,--wordembedding_name (default 'healthIT_symbol_50d_w10_i20_word2vec') Name of the word embedding file
+  -p,--progress_output (default 'ehr_process_text') Name of the progress output file
+  -u,--update_word_emb (default 0)         Update wordEmbedding flag
 ]]
 
 local model_name, model_class
 if args.model == 'lstm' then
   model_name = 'LSTM'
-  model_class = tracenn.RNNTrace
+  model_class = tracenn.RNNTrace_with_Input_Layer
 elseif args.model == 'bilstm' then
   model_name = 'Bidirectional LSTM'
-  model_class = tracenn.RNNTrace
+  model_class = tracenn.RNNTrace_with_Input_Layer
 elseif args.model == 'irnn' then
   model_name = 'IRNN'
-  model_class = tracenn.RNNTrace
+  model_class = tracenn.RNNTrace_with_Input_Layer
 elseif args.model == 'biirnn' then
   model_name = 'Bidirectional IRNN'
-  model_class = tracenn.RNNTrace
+  model_class = tracenn.RNNTrace_with_Input_Layer
 elseif args.model == 'gru' then
   model_name = 'GRU'
-  model_class = tracenn.RNNTrace
+  model_class = tracenn.RNNTrace_with_Input_Layer
 elseif args.model == 'bigru' then
   model_name = 'Bidirectional GRU'
-  model_class = tracenn.RNNTrace
+  model_class = tracenn.RNNTrace_with_Input_Layer
 elseif args.model == 'averagevect' then
   model_name = 'Average Vector'
   model_class = tracenn.AverageVectTrace
@@ -63,20 +64,20 @@ tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'
 tracenn.progress_dir = tracenn.output .. 'progress/'
-tracenn.artifact_dir = tracenn.data_dir .. 'artifact/symbol/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/EHR/'
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'trace_80_10_10_increase_from_45_additional_9/'
+local data_dir = tracenn.data_dir ..'trace_80_10_10_EHR/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
-local vocab = tracenn.Vocab(artifact_dir .. 'vocab_ptc_artifact_clean.txt')
+local vocab = tracenn.Vocab('/Users/Jinguo/Dropbox/TraceNN_experiment/skipthoughts/data/EHR/Vocab.txt')
 -- load all artifact
 local artifact = tracenn.read_artifact(artifact_dir, vocab)
 
 
 -- load embeddings
 print('Loading word embeddings')
-local emb_dir = tracenn.data_dir ..'wordembedding/'
+local emb_dir = '/Users/Jinguo/Dropbox/TraceNN_experiment/skipthoughts/data/wordEmbedding/'
 local emb_prefix = emb_dir .. args.wordembedding_name
 local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
 local emb_dim
@@ -105,15 +106,15 @@ emb_vecs = nil
 collectgarbage()
 
 -- Map artifact to word embeddings
-for i = 1, #artifact.src_artfs do
-  local src_artf = artifact.src_artfs[i]
-  artifact.src_artfs[i] = vecs:index(1, src_artf:long())
-end
-
-for i = 1, #artifact.trg_artfs do
-  local trg_artf = artifact.trg_artfs[i]
-  artifact.trg_artfs[i] = vecs:index(1, trg_artf:long())
-end
+-- for i = 1, #artifact.src_artfs do
+--   local src_artf = artifact.src_artfs[i]
+--   artifact.src_artfs[i] = vecs:index(1, src_artf:long())
+-- end
+--
+-- for i = 1, #artifact.trg_artfs do
+--   local trg_artf = artifact.trg_artfs[i]
+--   artifact.trg_artfs[i] = vecs:index(1, trg_artf:long())
+-- end
 
 -- load datasets
 print('loading datasets')
@@ -137,7 +138,8 @@ local model = model_class{
   learning_rate = args.learning_rate,
   batch_size = args.batch_size,
   grad_clip = args.grad_clip,
-  reg = args.reg
+  reg = args.reg,
+  update_word_embedding= args.update_word_emb,
 }
 
 -- Number of epochs to train
@@ -170,6 +172,7 @@ local  generate_balanced_dataset = function(dataset_to_balance)
   dataset_each_epoch.lsents = {}
   dataset_each_epoch.rsents = {}
   for i = 1, dataset_to_balance.size do
+    -- Label 2 indicate trace link, add all tracel ink to dataset
     if dataset_to_balance.labels[i] == 2 then
       link_index[#link_index + 1] = i
       dataset_each_epoch.lsents[#dataset_each_epoch.lsents+1]
@@ -177,6 +180,7 @@ local  generate_balanced_dataset = function(dataset_to_balance)
       dataset_each_epoch.rsents[#dataset_each_epoch.rsents+1]
         = dataset_to_balance.rsents[i]
     else
+      -- Label 1 indicate non trace link, non-link will add randomly within each epoch iteration
       nonlink_index[#nonlink_index + 1] = i
     end
   end
@@ -246,6 +250,7 @@ for i = 1, num_epochs do
         learning_rate = args.learning_rate,
         batch_size = args.batch_size,
         grad_clip = args.grad_clip,
+        update_word_embedding = args.update_word_emb
       }
       best_dev_model.params:copy(model.params)
     end
@@ -265,11 +270,11 @@ for i = 1, num_epochs do
     first_train_loss = train_loss
   end
   -- if the loss does not decrease to 80% by epoch 10, stop training
-  if i == 10 then
-    if train_loss > 0.8*first_train_loss then
-      break
-    end
-  end
+  -- if i == 10 then
+  --   if train_loss > 0.8*first_train_loss then
+  --     break
+  --   end
+  -- end
 end
 local training_time = sys.clock() - train_start
 printf('finished training in %.2fs\n', training_time)
