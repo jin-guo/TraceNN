@@ -462,6 +462,7 @@ function Trace_with_Input_Layer:print_config()
   printf('%-25s = %d\n',   'num params', num_params)
   printf('%-25s = %d\n',   'num compositional params', num_params - num_sim_params)
   printf('%-25s = %d\n',   'word vector dim', self.emb_dim)
+  printf('%-25s = %d\n',   'update word embedding', self.update_word_embedding)
   printf('%-25s = %d\n',   'RNN hidden dim', self.hidden_dim)
   printf('%-25s = %.2e\n', 'regularization strength', self.reg)
   printf('%-25s = %d\n',   'minibatch size', self.batch_size)
@@ -488,7 +489,6 @@ function Trace_with_Input_Layer:save(path)
     structure     = self.structure,
     grad_clip     = self.grad_clip,
     update_word_embedding= self.update_word_emb
-
   }
 
   torch.save(path, {
