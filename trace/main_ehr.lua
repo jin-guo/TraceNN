@@ -70,14 +70,14 @@ tracenn.artifact_dir = tracenn.data_dir .. 'artifact/EHR/'
 local data_dir = tracenn.data_dir ..'trace_80_10_10_EHR/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
-local vocab = tracenn.Vocab('/Users/Jinguo/Dropbox/TraceNN_experiment/skipthoughts/data/EHR/Vocab.txt')
+local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'Vocab.txt')
 -- load all artifact
 local artifact = tracenn.read_artifact(artifact_dir, vocab)
 
 
 -- load embeddings
 print('Loading word embeddings')
-local emb_dir = '/Users/Jinguo/Dropbox/TraceNN_experiment/skipthoughts/data/wordEmbedding/'
+local emb_dir = tracenn.data_dir .. 'wordEmbedding/'
 local emb_prefix = emb_dir .. args.wordembedding_name
 local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
 local emb_dim
