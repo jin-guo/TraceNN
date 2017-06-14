@@ -497,6 +497,24 @@ function Trace_with_Input_Layer:save(path)
   })
 end
 
+function Trace_with_Input_Layer:clone()
+  local config = {
+    batch_size    = self.batch_size,
+    emb_vecs      = self.emb_vecs,
+    learning_rate = self.learning_rate,
+    num_layers    = self.num_layers,
+    hidden_dim    = self.hidden_dim,
+    sim_nhidden   = self.sim_nhidden,
+    reg           = self.reg,
+    structure     = self.structure,
+    grad_clip     = self.grad_clip,
+    update_word_embedding= self.update_word_emb
+  }
+  local new_model = tracenn.RNNTrace_with_Input_Layer.new(config)
+  new_model.params:copy(self.params)
+  return new_model
+end
+
 function Trace_with_Input_Layer.load(path)
   local state = torch.load(path)
   local model = tracenn.RNNTrace_with_Input_Layer.new(state.config)

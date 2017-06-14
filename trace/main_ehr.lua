@@ -30,6 +30,7 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -w,--wordembedding_name (default 'healthIT_symbol_50d_w10_i20_word2vec') Name of the word embedding file
   -p,--progress_output (default 'ehr_process_text') Name of the progress output file
   -u,--update_word_emb (default 0)         Update wordEmbedding flag
+  -n,--negative_sampling_ratio (default 1) The ratio of negative links to positive links during each epoch
 ]]
 
 local model_name, model_class
@@ -163,8 +164,9 @@ local learning_rate_progress = {}
 
 header('Start Training model')
 
--- Generate dataset for each epoch contains all link example and equal number of random non-link example
-local  generate_balanced_dataset = function(dataset_to_balance)
+-- Generate dataset for each epoch contains all link example and
+-- "negative_sampling_ratio" times number of random non-link example
+local  generate_balanced_dataset = function(dataset_to_balance, ratio)
   local link_index = {}
   local nonlink_index = {}
   local dataset_each_epoch = {}
@@ -184,22 +186,23 @@ local  generate_balanced_dataset = function(dataset_to_balance)
       nonlink_index[#nonlink_index + 1] = i
     end
   end
-  dataset_each_epoch.size = 2*#link_index
-  dataset_each_epoch.labels = torch.ones(2*#link_index)
+  dataset_each_epoch.size = (1+ratio)*#link_index
+  dataset_each_epoch.labels = torch.ones((1+ratio)*#link_index)
   dataset_each_epoch.labels:narrow(1, 1, #link_index):fill(2)
   return dataset_each_epoch, link_index, nonlink_index
 end
 
+local neg_ratio = args.negative_sampling_ratio
 local training_dataset_each_epoch, training_link_index, training_nolink_index
-  = generate_balanced_dataset(train_dataset)
+  = generate_balanced_dataset(train_dataset, neg_ratio)
 local dev_dataset_each_epoch, dev_link_index, dev_nolink_index
-  = generate_balanced_dataset(dev_dataset)
+  = generate_balanced_dataset(dev_dataset, neg_ratio)
 
 for i = 1, num_epochs do
 
   -- Random select non-link examples for this epoch
   local nonlink_index_selected = torch.randperm(#training_nolink_index)
-  for j = 1, #training_link_index do
+  for j = 1, neg_ratio*#training_link_index do
     local index = nonlink_index_selected[j]
     training_dataset_each_epoch.lsents[#training_link_index+j]
       = train_dataset.lsents[index]
@@ -208,7 +211,7 @@ for i = 1, num_epochs do
   end
 
   local dev_nonlink_index_selected = torch.randperm(#dev_nolink_index)
-  for j = 1, #dev_link_index do
+  for j = 1, neg_ratio*#dev_link_index do
     local index = dev_nonlink_index_selected[j]
     dev_dataset_each_epoch.lsents[#dev_link_index+j]
       = dev_dataset.lsents[index]
@@ -358,6 +361,7 @@ io.write(string.format('%-25s = %.2e\n', 'regularization strength', model.reg))
 io.write(string.format('%-25s = %d\n',   'minibatch size', model.batch_size))
 io.write(string.format('%-25s = %.2e\n', 'initial learning rate', args.learning_rate))
 io.write(string.format('%-25s = %d\n',   'sim module hidden dim', model.sim_nhidden))
+io.write(string.format('%-25s = %d\n',   'negative sampling ratio', args.negative_sampling_ratio))
 if model.hidden_dim ~= nil and
   model.num_layers~= nil and
   model.grad_clip~= nil then
