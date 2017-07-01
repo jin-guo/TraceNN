@@ -21,13 +21,13 @@ Training script for semantic relatedness prediction on the TRACE dataset.
   -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
   -e,--epochs (default 40)                 Number of training epochs
   -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
-  -r,--learning_rate (default 5.00e-03)    Learning Rate during Training NN Model
+  -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
   -c,--grad_clip (default 1)              Gradient clip threshold
   -t,--test_model (default 0)          test model on the testing data
   -g,--reg  (default 1.00e-04)             Regulation lamda
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tse/') Output directory
-  -w,--wordembedding_name (default 'ptc_symbol_50d_w10_i20_word2vec') Name of the word embedding file
+  -w,--wordembedding_name (default 'ptc_w10_50d_20iter_new') Name of the word embedding file
   -p,--progress_output (default 'ptc_process_text') Name of the progress output file
   -u,--update_word_emb (default 0)         Update wordEmbedding flag
   -n,--negative_sampling_ratio (default 1) The ratio of negative links to positive links during each epoch
@@ -65,13 +65,13 @@ tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'
 tracenn.progress_dir = tracenn.output .. 'progress/'
-tracenn.artifact_dir = tracenn.data_dir .. 'artifact/PTC_big/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/PTC_small/'
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_big_additional_2/'
+local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_small/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
-local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'vocab_ptc_artifact_clean.txt')
+local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'Vocab.txt')
 -- load all artifact
 local artifact = tracenn.read_artifact(artifact_dir, vocab)
 

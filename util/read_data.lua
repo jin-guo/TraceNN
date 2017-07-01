@@ -18,6 +18,7 @@ function tracenn.read_sentences(path, vocab)
     if line == nil then break end
     local tokens = stringx.split(line)
     local len = #tokens
+    -- print("Sentence Length: " .. len)
     local count = 0
     for i = 1, len do
       if vocab:contains(tokens[i]) then
