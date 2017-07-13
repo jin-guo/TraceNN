@@ -1,63 +1,22 @@
---[[
-
-  Training Script for Trace Software Artifacts.
-
---]]
 
 require('..')
-
--- Pearson correlation
-function pearson(x, y)
-  x = x - x:mean()
-  y = y - y:mean()
-  return x:dot(y) / (x:norm() * y:norm())
-end
 
 -- read command line arguments
 local args = lapp [[
 Training script for semantic relatedness prediction on the TRACE dataset.
-  -m,--model  (default bigru)              Model architecture: [lstm, bilstm, averagevect]
-  -l,--layers (default 1)           	     Number of layers (ignored for averagevect)
-  -d,--dim    (default 30)        	       RNN hidden dimension (the same with LSTM memory dim)
   -e,--epochs (default 40)                 Number of training epochs
-  -s,--s_dim  (default 10)                 Number of similairity module hidden dimension
   -r,--learning_rate (default 1.00e-03)    Learning Rate during Training NN Model
   -b,--batch_size (default 1)              Batch Size of training data point for each update of parameters
-  -c,--grad_clip (default 1)              Gradient clip threshold
-  -t,--test_model (default 0)          test model on the testing data
+  -c,--grad_clip (default 10)              Gradient clip threshold
+  -t,--test_model (default 0)             test model on the testing data
   -g,--reg  (default 1.00e-04)             Regulation lamda
   -o,--output_dir (default '/Users/Jinguo/Dropbox/TraceNN_experiment/tse/') Output directory
-  -w,--wordembedding_name (default 'ptc_w10_50d_20iter_new') Name of the word embedding file
-  -p,--progress_output (default 'ptc_process_text') Name of the progress output file
+  -p,--progress_output (default 'ptc_test_trained_ptc_big_model') Name of the progress output file
   -u,--update_word_emb (default 0)         Update wordEmbedding flag
-  -n,--negative_sampling_ratio (default 1) The ratio of negative links to positive links during each epoch
+  -n,--negative_sampling_ratio (default 10) The ratio of negative links to positive links during each epoch
+  -m,--model_file_name (default 'ptc_small_n10_a9.model')            The name of the retrained model
 ]]
 
-local model_name, model_class
-if args.model == 'lstm' then
-  model_name = 'LSTM'
-  model_class = tracenn.RNNTrace_with_Input_Layer
-elseif args.model == 'bilstm' then
-  model_name = 'Bidirectional LSTM'
-  model_class = tracenn.RNNTrace_with_Input_Layer
-elseif args.model == 'irnn' then
-  model_name = 'IRNN'
-  model_class = tracenn.RNNTrace_with_Input_Layer
-elseif args.model == 'biirnn' then
-  model_name = 'Bidirectional IRNN'
-  model_class = tracenn.RNNTrace_with_Input_Layer
-elseif args.model == 'gru' then
-  model_name = 'GRU'
-  model_class = tracenn.RNNTrace_with_Input_Layer
-elseif args.model == 'bigru' then
-  model_name = 'Bidirectional GRU'
-  model_class = tracenn.RNNTrace_with_Input_Layer
-elseif args.model == 'averagevect' then
-  model_name = 'Average Vector'
-  model_class = tracenn.AverageVectTrace
-end
-local model_structure = args.model
-header('Use Model: ' .. model_name .. ' for Tracing')
 
 -- Update global directories
 tracenn.output = args.output_dir
@@ -65,59 +24,70 @@ tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'
 tracenn.progress_dir = tracenn.output .. 'progress/'
-tracenn.artifact_dir = tracenn.data_dir .. 'artifact/PTC_big_new/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/PTC_small/'
+
+local model_dir = tracenn.models_dir
+-- local model_file_name = '1495584415.6021.model'
+
+header('Load Pre-trained Model: '.. args.model_file_name)
+local pretrained_model = tracenn.RNNTrace_with_Input_Layer.load(model_dir .. args.model_file_name)
+
+-- local model_name, model_class, model_structure
+-- if pretrained_model.structure == 'gru' then
+--   model_name = 'GRU'
+--   model_class = tracenn.RNNTrace_with_Input_Layer
+--   model_structure = 'gru'
+-- elseif pretrained_model.structure == 'bigru' then
+--   model_name = 'Bidirectional GRU'
+--   model_class = tracenn.RNNTrace_with_Input_Layer
+--   model_structure = 'bigru'
+-- end
+-- header('Use Model: ' .. model_name .. ' for Tracing')
+--
+-- local rnn_in_dim = pretrained_model.emb_dim
+-- local rnn_hidden_dim = pretrained_model.hidden_dim
+-- local rnn_num_layers = pretrained_model.num_layers
+-- local sim_hidden_dim = pretrained_model.sim_nhidden
+-- if rnn_in_dim ~= pretrained_model.emb_dim then
+--   print('RNN input dimensions do not match')
+-- end
+
+-- Initialize model
+-- local model = model_class{
+--   emb_vecs   = pretrained_model.emb_vecs,
+--   structure  = model_structure,
+--   num_layers = rnn_num_layers,
+--   hidden_dim  = rnn_hidden_dim,
+--   sim_nhidden = sim_hidden_dim,
+--   learning_rate = args.learning_rate,
+--   batch_size = args.batch_size,
+--   grad_clip = args.grad_clip,
+--   reg = args.reg,
+--   update_word_embedding= args.update_word_emb,
+-- }
+--
+-- print('before copying')
+-- print(model.lrnn:getParameters())
+-- local trained_params = pretrained_model.params
+-- model.params:copy(pretrained_model.params)
+-- print('after copying')
+-- print(model.lrnn:getParameters())
+
+local model = pretrained_model:clone()
+model.learning_rate = args.learning_rate
+model.batch_size = args.batch_size
+model.grad_clip = args.grad_clip
+model.reg = args.reg
+
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_big_new/'
+local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_small_additional_5/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
 local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'Vocab.txt')
 -- load all artifact
 local artifact = tracenn.read_artifact(artifact_dir, vocab)
 
-
--- load embeddings
-print('Loading word embeddings')
-local emb_dir = tracenn.data_dir .. 'wordEmbedding/'
-local emb_prefix = emb_dir .. args.wordembedding_name
-local emb_vocab, emb_vecs = tracenn.read_embedding(emb_prefix .. '.vocab', emb_prefix .. '.vecs')
-local emb_dim
-for i, vec in ipairs(emb_vecs) do
-  emb_dim = vec:size(1)
-  break
-end
-print('Embedding dim:', emb_dim)
-
--- use only vectors in vocabulary (not necessary, but gives faster training)
-local num_unk = 0
-local vecs = torch.Tensor(vocab.size, emb_dim)
-for i = 1, vocab.size do
-  local w = vocab:token(i)
-  if emb_vocab:contains(w) then
-    vecs[i] = emb_vecs[emb_vocab:index(w)]
-  else
-    print(w)
-    num_unk = num_unk + 1
-    vecs[i]:uniform(-0.05, 0.05)
-  end
-end
-print('unk count = ' .. num_unk)
-emb_vocab = nil
-emb_vecs = nil
-collectgarbage()
-
--- Map artifact to word embeddings
--- for i = 1, #artifact.src_artfs do
---   local src_artf = artifact.src_artfs[i]
---   artifact.src_artfs[i] = vecs:index(1, src_artf:long())
--- end
---
--- for i = 1, #artifact.trg_artfs do
---   local trg_artf = artifact.trg_artfs[i]
---   artifact.trg_artfs[i] = vecs:index(1, trg_artf:long())
--- end
-
--- load datasets
 print('loading datasets')
 local train_dir = data_dir .. 'train/'
 local dev_dir = data_dir .. 'dev/'
@@ -128,20 +98,6 @@ local test_dataset = tracenn.read_trace_dataset(test_dir, vocab)
 printf('num train = %d\n', train_dataset.size)
 printf('num dev   = %d\n', dev_dataset.size)
 printf('num test  = %d\n', test_dataset.size)
-
--- Initialize model
-local model = model_class{
-  emb_vecs   = vecs,
-  structure  = model_structure,
-  num_layers = args.layers,
-  hidden_dim  = args.dim,
-  sim_nhidden = args.s_dim,
-  learning_rate = args.learning_rate,
-  batch_size = args.batch_size,
-  grad_clip = args.grad_clip,
-  reg = args.reg,
-  update_word_embedding= args.update_word_emb,
-}
 
 -- Number of epochs to train
 local num_epochs = args.epochs
@@ -244,18 +200,19 @@ for i = 1, num_epochs do
     if to_compare < best_dev_loss then
       best_dev_loss = to_compare -- using the max value of training loss and dev loss to select best model
       printf('saving model for best loss in %.2fs\n', best_dev_loss)
-      best_dev_model = model_class{
-        emb_vecs = vecs,
-        structure = model_structure,
-        num_layers = args.layers,
-        hidden_dim    = args.dim,
-        sim_nhidden = args.s_dim,
-        learning_rate = args.learning_rate,
-        batch_size = args.batch_size,
-        grad_clip = args.grad_clip,
-        update_word_embedding = args.update_word_emb
-      }
-      best_dev_model.params:copy(model.params)
+      -- best_dev_model = model_class{
+      --   emb_vecs = vecs,
+      --   structure = model_structure,
+      --   num_layers = args.layers,
+      --   hidden_dim    = args.dim,
+      --   sim_nhidden = args.s_dim,
+      --   learning_rate = args.learning_rate,
+      --   batch_size = args.batch_size,
+      --   grad_clip = args.grad_clip,
+      --   update_word_embedding = args.update_word_emb
+      -- }
+      -- best_dev_model.params:copy(model.params)
+      best_dev_model = model:clone()
     end
   -- end
   -- if(train_loss > last_train_loss and model.learning_rate > 1e-8) then
@@ -315,7 +272,7 @@ model_save_path = tracenn.models_dir .. args.progress_output ..'.model'
 
 while true do
   predictions_save_path = string.format(
-    tracenn.predictions_dir .. 'rel-%s.%dl.%dd.%d.pred', args.model, args.layers, args.dim, file_idx)
+    tracenn.predictions_dir .. 'progress_output', file_idx, '.pred')
   -- model_save_path = string.format(
   --   tracenn.models_dir .. 'rel-%s.%dl.%dd.%d.th', args.model, args.layers, args.dim, file_idx)
   -- check if the files already exist in the folder.
@@ -377,6 +334,3 @@ for i = 1, #learning_rate_progress do
   io.write(dev_loss_progress[i], ',')
   io.write(learning_rate_progress[i], '\n')
 end
-
--- to load a saved model
--- local loaded = model_class.load(model_save_path)
