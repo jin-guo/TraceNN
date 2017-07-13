@@ -81,7 +81,7 @@ model.reg = args.reg
 
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_small_additional_5/'
+local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_small/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
 local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'Vocab.txt')
