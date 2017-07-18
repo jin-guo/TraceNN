@@ -71,7 +71,7 @@ tracenn.artifact_dir = tracenn.data_dir .. 'artifact/PTC_big/'
 local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_big_additional_2/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
-local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'Vocab.txt')
+local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'vocab_ptc_artifact_clean.txt')
 -- load all artifact
 local artifact = tracenn.read_artifact(artifact_dir, vocab)
 
