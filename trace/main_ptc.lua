@@ -65,10 +65,10 @@ tracenn.data_dir        = tracenn.output .. 'data/'
 tracenn.models_dir      = tracenn.output .. 'trained_models/'
 tracenn.predictions_dir = tracenn.output .. 'predictions/'
 tracenn.progress_dir = tracenn.output .. 'progress/'
-tracenn.artifact_dir = tracenn.data_dir .. 'artifact/PTC_big_new/'
+tracenn.artifact_dir = tracenn.data_dir .. 'artifact/PTC_big/'
 
 -- directory containing dataset files
-local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_big_new/'
+local data_dir = tracenn.data_dir ..'trace_80_10_10_PTC_big_additional_2/'
 local artifact_dir = tracenn.artifact_dir
 -- load artifact vocab
 local vocab = tracenn.Vocab(tracenn.artifact_dir .. 'Vocab.txt')
